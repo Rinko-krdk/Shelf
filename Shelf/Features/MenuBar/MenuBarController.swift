@@ -14,11 +14,17 @@ final class MenuBarController: NSObject {
     private let toggleItem: NSMenuItem
     private let clearItem: NSMenuItem
     private let viewModel: ShelfViewModel
+    private let settingsWindowController: SettingsWindowController
     private var itemsCancellable: AnyCancellable?
 
-    init(panelController: ShelfPanelController, viewModel: ShelfViewModel) {
+    init(
+        panelController: ShelfPanelController,
+        viewModel: ShelfViewModel,
+        settingsWindowController: SettingsWindowController
+    ) {
         self.panelController = panelController
         self.viewModel = viewModel
+        self.settingsWindowController = settingsWindowController
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         menu = NSMenu(title: "Shelf")
         toggleItem = NSMenuItem(title: "显示 Shelf", action: nil, keyEquivalent: "")
@@ -119,7 +125,7 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func openSettings(_ sender: Any?) {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: sender)
+        settingsWindowController.showSettings()
     }
 
     @objc private func quit(_ sender: Any?) {

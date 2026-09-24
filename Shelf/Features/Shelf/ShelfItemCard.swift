@@ -11,6 +11,7 @@ struct ShelfItemCard: View {
     let item: ShelfItem
     @ObservedObject var thumbnailService: ThumbnailService
     let onRemove: (ShelfItem.ID) -> Void
+    let onRelocate: (ShelfItem.ID, URL) -> Void
 
     @State private var thumbnail: NSImage?
     @State private var isConfirmingRemoval = false
@@ -71,10 +72,16 @@ struct ShelfItemCard: View {
                 .accessibilityLabel(item.displayName)
 
             if item.status != .available {
-                Text(statusDescription)
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(statusDescription)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                    Button("重新选择…", action: chooseReplacement)
+                        .font(.caption2)
+                        .buttonStyle(.link)
+                        .accessibilityIdentifier("reselect-shelf-item-\(item.id.uuidString)")
+                }
             }
         }
         .padding(8)
@@ -144,6 +151,18 @@ struct ShelfItemCard: View {
             return "文件引用已失效"
         case .bookmarkResolutionFailed:
             return "无法恢复文件引用"
+        }
+    }
+
+    private func chooseReplacement() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "使用此文件"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            onRelocate(item.id, url)
         }
     }
 }

@@ -9,6 +9,7 @@ import SwiftUI
 @MainActor
 final class ShelfPanelController: NSObject, NSWindowDelegate {
     private let panel: ShelfPanel
+    private let viewModel: ShelfViewModel
     private var hasPositionedPanel = false
 
     private(set) var isVisible = false {
@@ -21,6 +22,7 @@ final class ShelfPanelController: NSObject, NSWindowDelegate {
     var onVisibilityChanged: ((Bool) -> Void)?
 
     init(viewModel: ShelfViewModel) {
+        self.viewModel = viewModel
         panel = ShelfPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .utilityWindow],
@@ -63,6 +65,7 @@ final class ShelfPanelController: NSObject, NSWindowDelegate {
     }
 
     func show() {
+        viewModel.refreshStatuses()
         if !hasPositionedPanel {
             panel.center()
             hasPositionedPanel = true

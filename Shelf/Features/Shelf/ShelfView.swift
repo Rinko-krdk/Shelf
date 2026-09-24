@@ -42,7 +42,8 @@ struct ShelfView: View {
                                 ShelfItemCard(
                                     item: item,
                                     thumbnailService: thumbnailService,
-                                    onRemove: viewModel.remove(id:)
+                                    onRemove: viewModel.remove(id:),
+                                    onRelocate: viewModel.reselect(id:with:)
                                 )
                             }
                         }
@@ -84,6 +85,14 @@ struct ShelfView: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text("只会移除 Shelf 中的引用，不会删除原文件。")
+        }
+        .alert("Shelf 提示", isPresented: Binding(
+            get: { viewModel.lastError != nil },
+            set: { if !$0 { viewModel.clearError() } }
+        )) {
+            Button("好") { viewModel.clearError() }
+        } message: {
+            Text(viewModel.lastError?.localizedDescription ?? "发生了未知错误。")
         }
     }
 

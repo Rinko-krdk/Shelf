@@ -20,6 +20,11 @@ struct BookmarkResolution: Sendable {
 
 final class ShelfFileService {
     func makeItem(for url: URL) -> ShelfItem {
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing { url.stopAccessingSecurityScopedResource() }
+        }
+
         let resourceValues = try? url.resourceValues(forKeys: [
             .nameKey,
             .localizedNameKey,
@@ -59,7 +64,27 @@ final class ShelfFileService {
         if let refreshedBookmarkData = resolution.refreshedBookmarkData {
             restoredItem.bookmarkData = refreshedBookmarkData
         }
+        if resolution.status == .available, let url = resolution.url {
+            restoredItem.fallbackURLString = url.absoluteString
+            let values = try? url.resourceValues(forKeys: [.localizedNameKey, .nameKey, .contentTypeKey])
+            restoredItem.displayName = values?.localizedName ?? values?.name ?? url.lastPathComponent
+            restoredItem.contentTypeIdentifier = values?.contentType?.identifier
+        }
         return restoredItem
+    }
+
+    func relocated(_ item: ShelfItem, to url: URL) -> ShelfItem {
+        let newItem = makeItem(for: url)
+        return ShelfItem(
+            id: item.id,
+            bookmarkData: newItem.bookmarkData,
+            fallbackURLString: newItem.fallbackURLString,
+            displayName: newItem.displayName,
+            contentTypeIdentifier: newItem.contentTypeIdentifier,
+            addedAt: item.addedAt,
+            status: newItem.status,
+            resolvedURL: newItem.resolvedURL
+        )
     }
 
     private func makeBookmark(for url: URL) throws -> Data {

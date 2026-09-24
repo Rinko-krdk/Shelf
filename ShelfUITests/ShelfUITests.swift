@@ -53,5 +53,8 @@ final class ShelfUITests: XCTestCase {
         settingsItem.click()
 
         XCTAssertTrue(app.windows["设置"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["current-shelf-shortcut"].waitForExistence(timeout: 2))
+        XCTAssertEqual(app.staticTexts["current-shelf-shortcut"].label, "⌃⌥Space")
+        XCTAssertTrue(app.buttons["record-shelf-shortcut-button"].exists)
     }
 }

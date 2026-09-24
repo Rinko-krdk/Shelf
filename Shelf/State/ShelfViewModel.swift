@@ -77,6 +77,24 @@ final class ShelfViewModel: ObservableObject {
         schedulePersistence()
     }
 
+    func refreshStatuses() {
+        guard !items.isEmpty else { return }
+        let refreshedItems = items.map(fileService.restore(_:))
+        guard refreshedItems != items else { return }
+        items = refreshedItems
+        schedulePersistence()
+    }
+
+    func reselect(id: ShelfItem.ID, with url: URL) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index] = fileService.relocated(items[index], to: url)
+        schedulePersistence()
+    }
+
+    func clearError() {
+        lastError = nil
+    }
+
     /// Test and shutdown helper. Mutations still schedule persistence immediately.
     func waitForPendingOperations() async {
         await pendingLoadTask?.value

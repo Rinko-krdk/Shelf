@@ -189,6 +189,43 @@ struct ShelfTests {
         #expect(viewModel.items.isEmpty)
     }
 
+    @Test func shortcutUsesDefaultAndRejectedCombinationKeepsCurrentValue() {
+        let suiteName = "ShelfTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let shortcutService = ShortcutService(defaults: defaults)
+
+        #expect(shortcutService.shortcut == .default)
+        #expect(shortcutService.shortcut.displayName == "⌃⌥Space")
+
+        let rejected = ShelfShortcut(keyCode: 0, modifierFlags: 0)
+        #expect(!shortcutService.setShortcut(rejected))
+        #expect(shortcutService.shortcut == .default)
+        #expect(shortcutService.lastError != nil)
+    }
+
+    @Test func reselectingFileKeepsItemIdentityAndOrder() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let firstURL = directory.appendingPathComponent("first.txt")
+        let replacementURL = directory.appendingPathComponent("replacement 中文.txt")
+        try Data("first".utf8).write(to: firstURL)
+        try Data("replacement".utf8).write(to: replacementURL)
+
+        let persistence = ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json"))
+        let viewModel = ShelfViewModel(persistenceService: persistence)
+        viewModel.add(urls: [firstURL, replacementURL])
+        let originalID = viewModel.items[0].id
+        let secondID = viewModel.items[1].id
+
+        viewModel.reselect(id: originalID, with: replacementURL)
+        await viewModel.waitForPendingOperations()
+
+        #expect(viewModel.items.map(\.id) == [originalID, secondID])
+        #expect(viewModel.items[0].displayName == "replacement 中文.txt")
+        #expect(viewModel.items[0].resolvedURL == replacementURL)
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ShelfTests-\(UUID().uuidString)", isDirectory: true)
