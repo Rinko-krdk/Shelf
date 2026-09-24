@@ -5,6 +5,8 @@
 //  Created by Rinko  on 2026/09/24.
 //
 
+import CoreGraphics
+import AppKit
 import Foundation
 import UniformTypeIdentifiers
 import Testing
@@ -100,6 +102,17 @@ struct ShelfTests {
         )
         let webURL = try #require(URL(string: "https://example.com"))
         #expect(ShelfDropImporter.decodeFileURL(from: webURL as NSURL) == nil)
+    }
+
+    @Test func dropImporterReadsFileURLsFromPasteboardInOrder() throws {
+        let pasteboard = NSPasteboard(name: .init("ShelfTests-\(UUID().uuidString)"))
+        pasteboard.clearContents()
+        let urls = [
+            URL(fileURLWithPath: "/tmp/first.txt"),
+            URL(fileURLWithPath: "/tmp/second.txt")
+        ]
+        #expect(pasteboard.writeObjects(urls as [NSURL]))
+        #expect(ShelfDropImporter.loadFileURLs(from: pasteboard) == urls)
     }
 
     @Test func dropImporterPreservesProviderOrderAndDuplicates() async throws {
@@ -270,6 +283,80 @@ struct ShelfTests {
 
         selection.select(ids[1], command: true, shift: false, orderedIDs: ids)
         #expect(selection.selectedIDs == [ids[1], ids[2], ids[3]])
+    }
+
+    @Test func selectionCanClearAndReplaceInShelfOrder() {
+        let ids = (0..<4).map { _ in UUID() }
+        var selection = ShelfSelectionState()
+
+        selection.add([ids[3], ids[1]], orderedIDs: ids)
+        #expect(selection.selectedIDs == [ids[1], ids[3]])
+
+        selection.replace(with: [ids[2], ids[0]], orderedIDs: ids)
+        #expect(selection.selectedIDs == [ids[0], ids[2]])
+
+        selection.clear()
+        #expect(selection.selectedIDs.isEmpty)
+        #expect(selection.anchorID == nil)
+    }
+
+    @Test func commandSelectionTogglesAnAlreadySelectedItemOff() {
+        let ids = (0..<2).map { _ in UUID() }
+        var selection = ShelfSelectionState()
+
+        selection.select(ids[0], command: false, shift: false, orderedIDs: ids)
+        selection.select(ids[0], command: true, shift: false, orderedIDs: ids)
+
+        #expect(selection.selectedIDs.isEmpty)
+    }
+
+    @Test func marqueeSelectsEveryCardIntersectingTheRectangle() {
+        let ids = (0..<3).map { _ in UUID() }
+        let frames: [UUID: CGRect] = [
+            ids[0]: CGRect(x: 0, y: 0, width: 40, height: 40),
+            ids[1]: CGRect(x: 50, y: 0, width: 40, height: 40),
+            ids[2]: CGRect(x: 100, y: 0, width: 40, height: 40)
+        ]
+        let selection = ShelfSelectionState()
+
+        let hits = selection.ids(
+            intersecting: CGRect(x: 35, y: 10, width: 25, height: 20),
+            in: frames,
+            orderedIDs: ids
+        )
+
+        #expect(hits == [ids[0], ids[1]])
+    }
+
+    @Test func retainingItemsRemovesSelectionAndRepairsAnchor() {
+        let ids = (0..<3).map { _ in UUID() }
+        var selection = ShelfSelectionState()
+        selection.add([ids[0], ids[2]], orderedIDs: ids)
+
+        selection.retain([ids[0]])
+
+        #expect(selection.selectedIDs == [ids[0]])
+        #expect(selection.anchorID == ids[0])
+    }
+
+    @Test func shiftSweepFindsEveryCardAlongThePointerPath() {
+        let ids = (0..<3).map { _ in UUID() }
+        let coordinator = ShelfSelectionGestureCoordinator()
+        coordinator.updateLayout(
+            frames: [
+                ids[0]: CGRect(x: 15, y: 10, width: 20, height: 20),
+                ids[1]: CGRect(x: 45, y: 10, width: 20, height: 20),
+                ids[2]: CGRect(x: 75, y: 10, width: 20, height: 20)
+            ],
+            orderedIDs: ids
+        )
+        let captureView = ShelfSelectionCaptureNSView(frame: CGRect(x: 0, y: 0, width: 120, height: 40))
+        coordinator.attach(captureView)
+        _ = coordinator.beginSweep(at: NSPoint(x: 0, y: 20), including: nil)
+
+        let passedIDs = coordinator.updateSweep(to: NSPoint(x: 110, y: 20))
+
+        #expect(passedIDs == Set(ids))
     }
 
     @Test func successfulMoveDeletesSourceAndRemovesShelfItem() async throws {

@@ -3,10 +3,25 @@
 //  Shelf
 //
 
+import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
 enum ShelfDropImporter {
+    static func loadFileURLs(from pasteboard: NSPasteboard) -> [URL] {
+        guard let objects = pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) as? [NSURL] else {
+            return []
+        }
+
+        return objects.compactMap { url in
+            let fileURL = url as URL
+            return fileURL.isFileURL ? fileURL : nil
+        }
+    }
+
     static func loadFileURLs(from providers: [NSItemProvider]) async -> [URL] {
         await withTaskGroup(of: (Int, URL?).self, returning: [URL].self) { group in
             for (index, provider) in providers.enumerated() {

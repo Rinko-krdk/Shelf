@@ -4,7 +4,7 @@
 
 这是一个运行在 macOS 上的文件 Shelf（临时中转架）应用。应用常驻 Menu Bar，用户可以通过全局快捷键呼出悬浮 Shelf，把 Finder 或其他 App 中的文件拖入 Shelf 暂存，再从 Shelf 将文件拖回 Finder 或其他支持文件拖放的 App。
 
-核心体验：Shelf 应该像一个轻量、可靠、可恢复的“文件中转站”，不复制或修改用户原始文件，退出应用后仍能恢复 Shelf 内容。
+核心体验：Shelf 应该像一个轻量、可靠、可恢复的“文件中转站”。用户把文件拖出并由目标成功接收时，Shelf 执行剪切：删除原文件并从 Shelf 移除该 item；取消拖放或传输失败时保留原文件和 Shelf item。退出应用后仍能恢复 Shelf 内容。
 
 ## 产品边界
 
@@ -27,7 +27,7 @@
 - 自动上传、同步、版本控制或文件内容编辑。
 - 复杂的文件预览编辑器。
 - 为了拖出而修改原文件权限。
-- 在没有用户明确操作时删除原文件。
+- 除用户主动拖出并成功完成的剪切操作外，不删除或改写原文件。
 
 ## 技术基线
 
@@ -44,38 +44,38 @@
 
 ```text
 App/
-  ShelfApp.swift              # 应用入口
-  AppDelegate.swift            # 生命周期与依赖组装
+  ShelfApp.swift                       # SwiftUI 应用入口
+  AppDelegate.swift                    # 生命周期与依赖组装
 
 Domain/
-  ShelfItem.swift              # Shelf item 与 Codable 模型
+  ShelfItem.swift                      # Shelf item、状态与持久化文档模型
+
 State/
-  ShelfViewModel.swift         # Shelf 状态与用户操作
+  ShelfViewModel.swift                 # Shelf 状态、用户操作与持久化协调
 
 Services/
-  ShelfFileService.swift       # 文件元数据与 security-scoped bookmark
-  ShelfPersistenceService.swift # Application Support JSON 持久化
+  ShelfFileService.swift               # 文件元数据、security-scoped bookmark 与源文件操作
+  ShelfPersistenceService.swift        # Application Support JSON 原子持久化
+  ShortcutService.swift                # 可配置全局快捷键
+  ThumbnailService.swift               # Quick Look 缩略图缓存与取消
 
 Features/Shelf/
-  ShelfPanelController.swift   # NSPanel 创建、显示、隐藏、焦点策略
-  ShelfView.swift              # Shelf 主界面
-  ShelfItemView.swift          # 缩略图、名称、状态和删除操作
-  ShelfDropDelegate.swift      # 文件拖入
-  ShelfDragProvider.swift      # 文件拖出
-  ThumbnailService.swift       # Quick Look 缩略图与缓存
+  ShelfPanelController.swift           # NSPanel 创建、显示与隐藏
+  ShelfView.swift                      # Shelf 网格、文件拖入与多选
+  ShelfItemCard.swift                  # 缩略图、名称、状态和移除操作
+  ShelfDropImporter.swift              # 文件 URL 拖入解析
+  ShelfDragSourceView.swift            # AppKit 文件 Promise 拖出桥接
+  ShelfFilePromiseDelegate.swift       # 文件传输与结果回报
 
 Features/MenuBar/
   MenuBarController.swift      # 状态栏图标及菜单
 
 Features/Settings/
-  SettingsView.swift           # 快捷键与基础偏好
-
-Infrastructure/
-  FileCoordinator.swift        # 文件可访问性、书签解析、失效检测
-  ShortcutService.swift        # 全局快捷键注册
+  SettingsView.swift                   # 全局快捷键展示和录制
+  SettingsWindowController.swift       # 设置窗口
 ```
 
-模块名称可按实际工程调整，但应保持领域逻辑、系统桥接和 UI 解耦。
+模块职责可随实现演进，但应保持领域逻辑、系统桥接和 UI 解耦。
 
 ## 关键行为约定
 
@@ -85,7 +85,8 @@ Infrastructure/
 2. 创建 `ShelfItem`，生成稳定 ID，保存原始 URL、展示名、UTI/类型、添加时间和顺序。
 3. 能生成安全书签时保存书签数据；无法生成时保留可用的非持久化 URL，并将恢复能力标记为受限。
 4. 更新内存状态后立即异步持久化，避免应用异常退出导致刚加入的 item 丢失。
-5. 删除 item 只删除 Shelf 元数据与书签，不删除原始文件。
+5. 手动删除 item 只删除 Shelf 元数据与书签，不删除原始文件。
+6. 用户主动拖出 item 后，只有目标确认接收且剪切传输完成时才删除原文件并移除 Shelf item；取消或失败时保留两者。
 
 ### 文件拖入
 
@@ -97,10 +98,11 @@ Infrastructure/
 
 ### 文件拖出
 
-- 拖出时提供原始文件 URL，而不是复制文件内容。
-- 拖出多个 item 时提供有序 URL 列表。
-- Finder 或目标 App 取消拖放时，不删除 Shelf item。
-- 成功拖出也不自动删除 item；删除应由用户明确执行。若未来增加“拖出即移除”，必须作为独立偏好并有清晰 UI。
+- 拖出采用剪切语义，通过文件 Promise 向目标提供文件；不在应用内长期保存文件内容副本。
+- 多选拖出时保持 Shelf 顺序，并逐项处理传输结果。
+- 只有目标成功接收且文件传输完成后，才删除源文件并移除对应 Shelf item。
+- 取消拖放、目标拒绝或传输失败时，保留源文件和对应 Shelf item，并向用户说明失败项。
+- 若现有书签没有源文件删除所需的授权，应先让用户重新选择同一文件并取得相应授权；校验失败或用户取消时不得执行剪切。
 
 ### 悬浮窗口
 
@@ -120,7 +122,8 @@ Infrastructure/
 
 ## 安全与隐私
 
-- 不复制、不上传、不删除、不改写用户文件。
+- 不上传或编辑用户文件；唯一的删除场景是用户主动拖出并由目标成功接收后完成剪切。
+- 不因拖入、应用退出、Shelf 清空或手动移除 item 而删除源文件。
 - 文件访问遵循 macOS 沙盒规则；如果启用 App Sandbox，应配置用户选择文件的读权限和持久化书签能力。
 - 不申请与功能无关的权限。
 - 日志不得记录完整文件内容；路径日志只用于调试，正式构建应避免泄露敏感路径。
@@ -133,7 +136,7 @@ Infrastructure/
 - 异步缩略图加载必须支持取消、缓存和主线程 UI 更新。
 - 所有用户可见字符串集中管理，默认使用简体中文，同时预留本地化结构。
 - 图标、颜色和间距优先使用系统语义值，适配浅色/深色模式和辅助功能字体大小。
-- 删除、清空等破坏性动作应支持撤销或二次确认；删除 Shelf item 不等于删除文件。
+- 清空和手动移除 Shelf item 应二次确认，且不删除源文件。剪切拖出会删除源文件，界面必须明确显示剪切语义；剪切只可在用户主动拖出且目标成功接收后完成。
 - 任何新增第三方依赖都要说明用途、许可证、维护状态和对沙盒/签名的影响。
 
 ## 测试要求
@@ -144,7 +147,8 @@ Infrastructure/
 - 文件名包含空格、中文、emoji 和特殊字符。
 - 普通文件、图片、视频、PDF、无缩略图文件和目录的展示。
 - 从 Shelf 拖到 Finder、文本编辑器或其他可接受文件拖放的 App。
-- 删除单项、清空、取消拖出、重复 item。
+- 成功剪切后确认目标文件存在、源文件和 Shelf item 已移除；取消或失败时确认源文件和 Shelf item 均保留。
+- 删除单项、清空、剪切授权取消/失败、重复 item。
 - 退出并重新启动后恢复顺序、名称、缩略图和失效状态。
 - 文件被移动、重命名、删除或权限变化后的表现。
 - 快捷键呼出/隐藏、快捷键冲突、窗口层级、浅色/深色模式和不同显示器布局。

@@ -6,9 +6,18 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct ShelfCardFramePreferenceKey: PreferenceKey {
+    static let defaultValue: [ShelfItem.ID: CGRect] = [:]
+
+    static func reduce(value: inout [ShelfItem.ID: CGRect], nextValue: () -> [ShelfItem.ID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
 struct ShelfView: View {
     @ObservedObject var viewModel: ShelfViewModel
     @StateObject private var thumbnailService = ThumbnailService()
+    @StateObject private var selectionGesture = ShelfSelectionGestureCoordinator()
     @State private var isDropTargeted = false
     @State private var isConfirmingClear = false
     @State private var selection = ShelfSelectionState()
@@ -18,6 +27,16 @@ struct ShelfView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
+                ShelfWindowDragHandle()
+                    .frame(width: 14, height: 18)
+                    .overlay {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.tertiary)
+                            .allowsHitTesting(false)
+                    }
+                    .accessibilityLabel("移動 Shelf 窗口")
+                    .accessibilityIdentifier("shelf-window-drag-handle")
                 Text("Shelf · \(viewModel.items.count)")
                     .font(.headline)
                 if !selection.selectedIDs.isEmpty {
@@ -56,10 +75,31 @@ struct ShelfView: View {
                                 onRemove: viewModel.remove(id:),
                                 onRelocate: viewModel.reselect(id:with:)
                             )
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: ShelfCardFramePreferenceKey.self,
+                                        value: [item.id: geometry.frame(in: .named("shelf-selection-grid"))]
+                                    )
+                                }
+                            }
                         }
                     }
                     .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .coordinateSpace(name: "shelf-selection-grid")
+                .overlay(alignment: .topLeading) {
+                    ShelfSelectionCaptureView(
+                        coordinator: selectionGesture,
+                        onBlankClick: clearSelection,
+                        onMarqueeSelection: replaceSelection,
+                        onSweepSelection: addSelection,
+                        onCardClick: selectItem
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .onPreferenceChange(ShelfCardFramePreferenceKey.self) { frames in
+                    selectionGesture.updateLayout(frames: frames, orderedIDs: viewModel.items.map(\.id))
                 }
                 .accessibilityIdentifier("shelf-item-grid")
             }
@@ -130,6 +170,18 @@ struct ShelfView: View {
             shift: modifiers.contains(.shift),
             orderedIDs: viewModel.items.map(\.id)
         )
+    }
+
+    private func clearSelection() {
+        selection.clear()
+    }
+
+    private func replaceSelection(_ ids: Set<ShelfItem.ID>) {
+        selection.replace(with: ids, orderedIDs: viewModel.items.map(\.id))
+    }
+
+    private func addSelection(_ ids: Set<ShelfItem.ID>) {
+        selection.add(ids, orderedIDs: viewModel.items.map(\.id))
     }
 
     private func completePromise(_ id: ShelfItem.ID, _ error: Error?) {

@@ -32,6 +32,7 @@ final class ShelfUITests: XCTestCase {
         app.menuItems["显示 Shelf"].click()
         XCTAssertTrue(app.windows["shelf-panel"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["shelf-empty-state"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["shelf-window-drag-handle"].exists)
         XCTAssertFalse(app.buttons["copy-selected-items"].exists)
         XCTAssertFalse(app.buttons["move-selected-items"].exists)
 

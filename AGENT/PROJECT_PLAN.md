@@ -2,36 +2,26 @@
 
 ## 1. 项目目标
 
-制作一个常驻 macOS Menu Bar 的文件中转 Shelf。用户可用快捷键呼出悬浮窗口，将 Finder 或其他 App 中的文件拖入，查看文件缩略图和名称，再把文件拖回 Finder/其他 App。Shelf 内容在应用退出后可恢复。
+制作一个常驻 macOS Menu Bar 的文件中转 Shelf。用户可用快捷键呼出悬浮窗口，将 Finder 或其他 App 中的文件拖入，查看文件缩略图和名称，再把文件剪切到 Finder/其他 App。Shelf 内容在应用退出后可恢复。
 
-本项目的第一目标是建立“低打扰、低风险、可恢复”的文件中转体验：应用只保存文件引用和展示元数据，不复制或修改原始文件。
+本项目的第一目标是建立“低打扰、可恢复”的文件中转体验：应用持久化文件引用和展示元数据，不长期保存文件内容副本。用户从 Shelf 主动拖出文件时采用剪切语义；只有目标成功接收文件后，应用才删除源文件并从 Shelf 移除该 item。取消、拒绝或传输失败时，保留源文件和 Shelf item。
 
 ## 当前工程基线
 
-- Git 仓库位于 `Shelf/`，当前分支为 `main`，已有初始提交，尚未配置远端。
+- Git 仓库位于 `Shelf/`，当前分支为 `main`，已配置并跟踪 `origin/main`。
 - Xcode 工程名和 scheme 为 `Shelf`，包含 App、单元测试和 UI 测试 target。
-- 当前代码已清理 Xcode 初始 SwiftData 模板；Menu Bar、AppKit 悬浮 Shelf 窗口、设置入口、Shelf 数据恢复、文件拖入和拖出及删除已实现。
+- 当前代码已清理 Xcode 初始 SwiftData 模板；Menu Bar、AppKit 悬浮 Shelf 窗口、设置入口、全局快捷键、Shelf 状态恢复、拖入、缩略图与图标展示、删除/清空及剪切式拖出均已实现。
 - 工程已明确启用 App Sandbox，部署目标统一为 macOS 15.0，应用 Bundle ID 为 `com.rinko.shelf`，Swift 语言模式为 5.0；后续持久化采用 Codable + Application Support，不使用 SwiftData。
-- `xcodebuild -list` 能识别工程和 `Shelf` scheme；当前仓库把本机 Xcode `xcuserdata` 纳入了初始提交，Git 清理会移除该跟踪并忽略后续用户数据。
+- 应用状态由 `ShelfViewModel` 管理，文件引用/书签逻辑在 `ShelfFileService`，元数据持久化由 `ShelfPersistenceService` 负责。
 
-### Phase 1 当前进度
+### 当前开发状态
 
-- 已通过 `NSApplicationDelegateAdaptor` 接入 AppKit 生命周期，并将应用设为 accessory activation policy。
-- 已实现 `NSStatusItem` 菜单栏入口、Shelf 显示/隐藏、设置入口、清空和退出操作。
-- 已实现承载 SwiftUI 内容的浮动 `NSPanel`，支持窗口移动、调整大小、Esc 隐藏和全屏辅助空间行为。
-- 已实现 `ShelfItem`、版本化 `ShelfDocument`、`ShelfViewModel` 和 security-scoped bookmark 恢复；数据写入 Application Support，并使用临时文件加原子替换。
-- 已接入 Shelf 内容区文件拖入，支持文件 URL/常见 URL 数据、多文件顺序和重复项；Shelf 使用自适应紧凑网格展示名称、状态、Quick Look 缩略图和系统图标降级。
-- 已添加异步缩略图服务，按 item ID 缓存并在卡片离开视图时取消请求；生成期间维持 security-scoped URL 访问。
-- 已加入损坏 JSON 隔离、单 item 解码容错、失效状态恢复、重复 item 保留和不触碰原文件的领域测试。
-- 已实现单项移除和清空确认；拖出通过文件 URL 提供原始文件引用，拖动取消或完成均保留 Shelf item。
-- 已加入菜单栏、Panel 显示/隐藏和设置入口的 UI 测试，以及拖放 URL 解码、顺序、重复项和原文件保留测试。
-
-### Phase 6 当前进度
-
-- 已接入全局快捷键，默认 `⌃⌥Space`，支持设置页录制；注册失败保留旧绑定并在设置页显示原因，菜单栏入口仍可使用。
-- 已在启动、应用重新激活和 Shelf 显示时刷新 bookmark 与文件可用状态；失效 item 保留，可重新选择文件并保留 item ID 与顺序。
-- 已将 Shelf 持久化错误接入界面提示；损坏 JSON 继续隔离，用户可看到恢复提示。
-- 已补充快捷键失败与文件重新选择单元测试，以及设置页快捷键显示 UI 测试；构建与测试待验证。
+- Phase 0 已完成：工程、沙盒、菜单栏窗口和书签持久化方案已建立。
+- Phase 1 核心功能已实现：Menu Bar 菜单、悬浮 `NSPanel`、Esc 隐藏、可配置全局快捷键（默认 `⌃⌥Space`），注册失败时提供提示并保留菜单栏入口。窗口位置恢复、点击外部隐藏和多显示器行为仍需验收/完善。
+- Phase 2 已实现：`ShelfItem`、版本化 `ShelfDocument`、单一 `ShelfViewModel`、批量文件/文件夹拖入、稳定顺序、重复项保留、安全书签、Application Support 原子持久化与启动恢复。
+- Phase 3 核心 UI 已实现：Quick Look 缩略图缓存与取消、系统图标降级、名称/tooltip、失效状态、重新选择、空状态和辅助功能标识；不同显示器、主题与大量项目性能仍需验收。
+- Phase 4 已实现：单项/多项文件 Promise 拖出、多选、剪切、单项移除和清空确认。拖出成功后删除源文件并移除 Shelf item；取消或失败时保留。右侧边缘透明拖拽接收区、跨 Spaces 的 Peek/Expand 展示状态和拖入复用逻辑已加入；成功拖入后保持 Shelf 展开；缺少实际 Finder 与其他 App 的完整手工验收记录。
+- Phase 5 进行中：已有领域单元测试以及菜单栏、窗口、设置 UI 测试；发布前仍需执行构建和测试、完成拖放与恢复手工验收、检查签名/公证/干净安装，并补齐 README、隐私说明和已知限制。
 
 ## 2. 目标用户流程
 
@@ -46,7 +36,9 @@ Shelf 保存文件引用并显示缩略图/文件名
         ↓
 从 Shelf 拖出文件
         ↓
-目标 App 接收原始文件 URL，Shelf item 保留
+目标 App 接收文件
+        ↓
+传输成功后删除源文件并从 Shelf 移除 item
 ```
 
 异常流程：文件被移动、删除或权限变化时，item 不消失，显示为失效状态，用户可以重新定位或手动移除。
@@ -94,9 +86,9 @@ Shelf 保存文件引用并显示缩略图/文件名
 验收标准：
 
 - 可以将单个或多个 item 拖到 Finder 和至少一个其他文件拖放目标。
-- 目标接收到原始文件 URL，不产生额外内容副本。
-- 取消拖放不会删除或改变 item。
-- 拖出成功后 item 默认保留，便于重复使用。
+- 采用剪切语义向目标提供文件；目标成功接收后删除源文件并从 Shelf 移除对应 item。
+- 取消拖放、目标拒绝或传输失败时，不删除源文件，也不改变 Shelf item。
+- 对没有源文件删除授权的 item，先要求用户重新选择同一文件进行授权；未完成授权时不启动剪切。
 
 ### 3.6 删除
 
@@ -104,7 +96,8 @@ Shelf 保存文件引用并显示缩略图/文件名
 
 - 每个 item 可单独删除。
 - 支持清空 Shelf，并对批量删除提供确认或撤销。
-- 任何删除操作都不会删除原文件。
+- 手动删除单项或清空 Shelf 只移除 Shelf 元数据，不删除原文件。
+- 只有成功完成的拖出剪切会删除源文件；界面清晰提示该行为。
 - 删除后立即更新界面并持久化。
 
 ### 3.7 退出后恢复
@@ -137,16 +130,17 @@ Shelf 保存文件引用并显示缩略图/文件名
 struct ShelfItem: Identifiable, Codable, Equatable {
     let id: UUID
     var bookmarkData: Data?
+    var bookmarkAllowsWriteAccess: Bool
     var fallbackURLString: String?
     var displayName: String
     var contentTypeIdentifier: String?
     var addedAt: Date
-    var position: Int
     var status: ShelfItemStatus
+    // resolvedURL 仅在运行时恢复，不写入 Codable 文档。
 }
 ```
 
-`ShelfItemStatus` 至少覆盖：正常、正在解析、文件不存在、无权限、书签失效、未知错误。模型必须携带版本号，便于后续迁移。
+当前顺序由 `ShelfDocument.items` 数组保存，不另存 position。`ShelfItemStatus` 覆盖可用、文件不存在、无法访问、书签过期和书签解析失败；`ShelfDocument` 携带版本号，便于后续迁移。
 
 ### 4.3 持久化策略
 
@@ -154,7 +148,7 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 - 元数据文件：建议 `shelf-items.json`，后续可迁移到数据库。
 - 采用写临时文件后原子替换。
 - item 添加、删除、排序变化后立即异步保存；退出回调只做补充保存。
-- 不保存文件二进制内容、不生成用户文件副本。
+- 不在 Shelf 元数据中保存文件二进制内容。拖出通过文件 Promise 传输，目标接收完成后删除源文件以实现剪切。
 - 启动恢复流程必须容忍单个 item 解析失败，不因一个坏 item 丢失全部 Shelf。
 
 ## 5. 分阶段实施计划
@@ -173,6 +167,8 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 
 ### Phase 1：Menu Bar、窗口和快捷键
 
+当前进度：核心功能已实现；窗口位置恢复、点击外部隐藏、多显示器及焦点/拖放期间行为仍需验收或完善。
+
 产出：
 
 - Menu Bar 图标及基础菜单。
@@ -184,43 +180,47 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 
 ### Phase 2：Shelf 状态与拖入
 
-当前进度：Shelf 状态模型、单一 ViewModel、Application Support 原子持久化和 bookmark 恢复已完成；文件拖入、缩略图和网格展示已完成；拖出与删除归 Phase 4。
+当前进度：已完成 Shelf 状态模型、单一 ViewModel、批量拖入、顺序/重复项处理、Application Support 原子持久化和 bookmark 恢复。
 
 产出：
 
 - `ShelfViewModel` 与 `ShelfItem` 数据模型。
-- 支持批量拖入文件和文件夹；（已完成）
+- 支持批量拖入文件和文件夹。
 - item 顺序、唯一 ID、重复 item 处理。
 - security-scoped bookmark 创建与存储。
 - 原子持久化和启动恢复骨架。
 
-完成标志：拖入的文件列表稳定显示，重启后能恢复，删除原文件后 item 不会静默消失。拖入和基础展示已完成；拖出归 Phase 4。
+完成标志：拖入的文件列表稳定显示，重启后能恢复，删除原文件后 item 不会静默消失。
 
 ### Phase 3：缩略图与完整 UI
 
+当前进度：主要 UI 能力已实现；主题、辅助功能、不同显示器和大量 item 性能仍需验收。
+
 产出：
 
-- Quick Look 缩略图异步生成、缓存和取消。（已完成）
-- 无缩略图时的系统图标降级。（已完成）
-- 文件名排版、tooltip、失效状态和空状态。（已完成）
-- 浅色/深色模式和辅助功能标签。（已完成；键盘操作可随拖出/删除交互完善）
+- Quick Look 缩略图异步生成、缓存和取消。
+- 无缩略图时的系统图标降级。
+- 文件名排版、tooltip、失效状态、空状态和加载状态。
+- 浅色/深色模式、辅助功能标签和键盘操作。
 
 完成标志：常见文件类型和异常文件状态下，Shelf 视觉反馈清晰且无明显卡顿。
 
 ### Phase 4：拖出与删除
 
-当前进度：单项拖出、单项移除和清空 Shelf 已实现。拖出传递原始文件 URL，不在拖动结束后移除 item；移除和清空均需明确确认。
+当前进度：剪切式拖出、单项/多项选择、单项移除及清空确认已实现；Finder 和其他 App 的手工兼容性验收待完成。
 
 产出：
 
-- 单 item 和多 item 文件拖出。
+- 单 item 和多 item 文件 Promise 剪切拖出；接收成功后删除源文件并移除 Shelf item。
 - Finder 及其他文件拖放目标验证。
 - 单项删除、清空、撤销/确认策略。
-- 确保拖出和删除不影响原始文件。
+- 手动移除和清空不影响原始文件；取消或失败的剪切不删除源文件或 Shelf item。
 
-完成标志：完成“Finder → Shelf → Finder/其他 App”的完整主流程，并覆盖取消拖放。
+完成标志：完成“Finder → Shelf → Finder/其他 App”的剪切主流程，并验证成功、取消、权限不足和部分失败场景。
 
 ### Phase 5：可靠性、测试与发布准备
+
+当前进度：单元测试和基础 UI 测试已编写；完整构建/测试结果及关键手工验收记录尚待补齐。签名、公证、干净安装和产品文档也待完成。
 
 产出：
 
@@ -240,9 +240,12 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 | Finder 拖入多个文件 | 按拖入顺序创建多个 item |
 | 拖入文件夹 | 文件夹作为 1 个 item，不扫描内容 |
 | 重复拖入同一文件 | 默认保留两个独立 item |
-| 从 Shelf 拖到 Finder | Finder 接收原始文件 URL，Shelf item 保留 |
-| 拖出后取消 | Shelf 无变化 |
-| 删除 Shelf item | 只删除 Shelf 元数据，不删除源文件 |
+| 从 Shelf 拖到 Finder | Finder 接收文件；传输成功后源文件和 Shelf item 被移除 |
+| 从 Shelf 拖到其他目标 | 目标兼容文件 Promise；传输成功后执行剪切 |
+| 拖出后取消 | 源文件和 Shelf item 均保留 |
+| 拖出传输失败 | 失败项的源文件和 Shelf item 均保留，并给出提示 |
+| 剪切缺少写入授权 | 要求用户重新选择同一文件；取消或校验失败时不执行剪切 |
+| 手动删除 Shelf item 或清空 | 只删除 Shelf 元数据，不删除源文件 |
 | 退出并重新启动 | item、顺序和状态恢复 |
 | 文件移动/重命名 | 重新解析书签；若不可定位则显示失效 |
 | 文件删除 | item 保留并显示文件不存在 |
@@ -255,7 +258,7 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 
 ### 全局快捷键依赖
 
-不同实现对沙盒、辅助功能权限和系统版本的兼容性不同。Phase 0 先验证方案，必须保留 Menu Bar 菜单作为无快捷键时的可用后备入口。
+当前使用 Carbon 全局快捷键注册。快捷键注册可能失败或冲突，必须保留 Menu Bar 菜单作为后备入口，并在设置/启动时显示可理解的错误。
 
 ### 文件引用与沙盒
 
@@ -271,7 +274,7 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 
 ### 拖放兼容性
 
-不同目标 App 接收的 pasteboard 类型可能不同。先保证 Finder 闭环，再用文本编辑器、邮件/聊天类 App 和其他常见目标验证兼容性，并保留明确的失败反馈。
+不同目标 App 对文件 Promise 的支持可能不同。先验证 Finder 剪切闭环，再验证至少一个其他文件目标；只有传输成功才删除源文件，其他结果必须保留源文件和 Shelf item，并提供明确反馈。
 
 ## 8. 后续可选功能
 
@@ -280,7 +283,6 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 - Shelf item 拖动排序和置顶。
 - 多个 Shelf 或命名 Shelf。
 - 自动隐藏、固定窗口和位置/尺寸设置。
-- “拖出成功后移除”偏好。
 - 右键菜单：在 Finder 中显示、复制路径、重新定位、移除。
 - 搜索、分组和最近使用记录。
 - 登录启动和菜单栏图标状态自定义。
@@ -291,9 +293,14 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 - [ ] Menu Bar 常驻和菜单操作可用。
 - [ ] 快捷键呼出/隐藏可用，失败时有后备入口。
 - [ ] 缩略图、系统图标、长文件名和失效状态均有合理表现。
-- [ ] 删除与清空不会触碰原始文件。
+- [ ] 手动删除与清空只移除 Shelf 元数据；成功剪切后才删除源文件。
+- [ ] 剪切取消、失败、权限不足和多项部分成功的结果正确且有反馈。
 - [ ] 退出/重启恢复通过。
 - [ ] 文件移动、删除和权限变化有可理解反馈。
 - [ ] 持久化采用原子写入并有版本号。
 - [ ] 通过浅色/深色模式、辅助功能和多显示器基础检查。
 - [ ] 完成签名、公证和干净安装验证。
+
+## 10. 架构
+
+采用轻量的功能模块结构：SwiftUI 负责界面，AppKit 负责 macOS 窗口、菜单栏和拖放桥接。当前状态由 `ShelfViewModel` 管理，书签与文件访问由 `ShelfFileService` 负责，元数据读写由 `ShelfPersistenceService` 负责。保持系统交互、领域状态和界面职责分离，避免不必要的抽象。
