@@ -10,6 +10,11 @@ import UniformTypeIdentifiers
 struct ShelfItemCard: View {
     let item: ShelfItem
     @ObservedObject var thumbnailService: ThumbnailService
+    let isSelected: Bool
+    let selectedItems: [ShelfItem]
+    let onSelect: (ShelfItem.ID, NSEvent.ModifierFlags) -> Void
+    let onPromiseCompleted: (ShelfItem.ID, Error?) -> Void
+    let onNeedsWriteAccess: ([ShelfItem.ID]) -> Void
     let onRemove: (ShelfItem.ID) -> Void
     let onRelocate: (ShelfItem.ID, URL) -> Void
 
@@ -36,6 +41,15 @@ struct ShelfItemCard: View {
                         .padding(18)
                         .foregroundStyle(item.status == .available ? Color(nsColor: .secondaryLabelColor) : .orange)
                 }
+
+                ShelfDragSourceView(
+                    item: item,
+                    itemID: item.id,
+                    selectedItems: selectedItems,
+                    onSelect: onSelect,
+                    onPromiseCompleted: onPromiseCompleted,
+                    onNeedsWriteAccess: onNeedsWriteAccess
+                )
 
                 if item.status != .available {
                     Image(systemName: statusSymbol)
@@ -70,6 +84,9 @@ struct ShelfItemCard: View {
                 .truncationMode(.middle)
                 .help(item.displayName)
                 .accessibilityLabel(item.displayName)
+                .onTapGesture {
+                    onSelect(item.id, NSEvent.modifierFlags)
+                }
 
             if item.status != .available {
                 VStack(alignment: .leading, spacing: 3) {
@@ -89,11 +106,14 @@ struct ShelfItemCard: View {
         .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 1)
+                .strokeBorder(
+                    isSelected ? Color.accentColor : Color(nsColor: .separatorColor).opacity(0.35),
+                    lineWidth: isSelected ? 2 : 1
+                )
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shelf-item-\(item.id.uuidString)")
-        .onDrag { ShelfDragProvider.makeProvider(for: item) ?? NSItemProvider() }
+        .contentShape(RoundedRectangle(cornerRadius: 10))
         .confirmationDialog(
             "从 Shelf 移除“\(item.displayName)”？",
             isPresented: $isConfirmingRemoval,

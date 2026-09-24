@@ -45,6 +45,7 @@ final class ShelfFileService {
 
         return ShelfItem(
             bookmarkData: bookmarkData,
+            bookmarkAllowsWriteAccess: bookmarkData != nil,
             fallbackURLString: url.absoluteString,
             displayName: displayName,
             contentTypeIdentifier: resourceValues?.contentType?.identifier,
@@ -63,6 +64,7 @@ final class ShelfFileService {
         restoredItem.status = resolution.status
         if let refreshedBookmarkData = resolution.refreshedBookmarkData {
             restoredItem.bookmarkData = refreshedBookmarkData
+            restoredItem.bookmarkAllowsWriteAccess = true
         }
         if resolution.status == .available, let url = resolution.url {
             restoredItem.fallbackURLString = url.absoluteString
@@ -78,6 +80,7 @@ final class ShelfFileService {
         return ShelfItem(
             id: item.id,
             bookmarkData: newItem.bookmarkData,
+            bookmarkAllowsWriteAccess: newItem.bookmarkAllowsWriteAccess,
             fallbackURLString: newItem.fallbackURLString,
             displayName: newItem.displayName,
             contentTypeIdentifier: newItem.contentTypeIdentifier,
@@ -87,9 +90,27 @@ final class ShelfFileService {
         )
     }
 
+    func removeSource(for item: ShelfItem) throws {
+        guard item.bookmarkAllowsWriteAccess,
+              let url = item.resolvedURL,
+              url.isFileURL else {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
+    }
+
     private func makeBookmark(for url: URL) throws -> Data {
         try url.bookmarkData(
-            options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+            options: [.withSecurityScope],
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )

@@ -45,6 +45,15 @@ struct ShelfTests {
         #expect(restored.items[0].resolvedURL == nil)
     }
 
+    @Test func legacyShelfItemsDefaultToReadOnlyBookmarks() throws {
+        let data = Data(#"{"displayName":"legacy.txt","addedAt":"2026-09-24T00:00:00Z","status":"available"}"#.utf8)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let item = try decoder.decode(ShelfItem.self, from: data)
+
+        #expect(!item.bookmarkAllowsWriteAccess)
+    }
+
     @Test func fileServiceCapturesFileMetadataAndFallbackURL() throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -57,6 +66,28 @@ struct ShelfTests {
         #expect(item.displayName == "中文 文件.txt")
         #expect(item.fallbackURL == sourceURL)
         #expect(item.resolvedURL == sourceURL)
+    }
+
+    @Test func fileServiceDeletesOnlyWithWriteAuthorizationFlag() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceURL = directory.appendingPathComponent("authorized-cut.txt")
+        try Data("cut".utf8).write(to: sourceURL)
+        let service = ShelfFileService()
+        let readOnlyItem = ShelfItem(displayName: "authorized-cut.txt", resolvedURL: sourceURL)
+
+        #expect(throws: CocoaError.self) {
+            try service.removeSource(for: readOnlyItem)
+        }
+        #expect(FileManager.default.fileExists(atPath: sourceURL.path))
+
+        let writableItem = ShelfItem(
+            bookmarkAllowsWriteAccess: true,
+            displayName: "authorized-cut.txt",
+            resolvedURL: sourceURL
+        )
+        try service.removeSource(for: writableItem)
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
     @Test func dropImporterDecodesFileURLsAndRejectsWebURLs() throws {
@@ -224,6 +255,87 @@ struct ShelfTests {
         #expect(viewModel.items.map(\.id) == [originalID, secondID])
         #expect(viewModel.items[0].displayName == "replacement 中文.txt")
         #expect(viewModel.items[0].resolvedURL == replacementURL)
+    }
+
+    @Test func selectionSupportsCommandToggleAndShiftRange() {
+        let ids = (0..<4).map { _ in UUID() }
+        var selection = ShelfSelectionState()
+
+        selection.select(ids[0], command: false, shift: false, orderedIDs: ids)
+        selection.select(ids[2], command: true, shift: false, orderedIDs: ids)
+        #expect(selection.selectedIDs == [ids[0], ids[2]])
+
+        selection.select(ids[3], command: false, shift: true, orderedIDs: ids)
+        #expect(selection.selectedIDs == [ids[2], ids[3]])
+
+        selection.select(ids[1], command: true, shift: false, orderedIDs: ids)
+        #expect(selection.selectedIDs == [ids[1], ids[2], ids[3]])
+    }
+
+    @Test func successfulMoveDeletesSourceAndRemovesShelfItem() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceURL = directory.appendingPathComponent("move.txt")
+        try Data("move".utf8).write(to: sourceURL)
+        let viewModel = ShelfViewModel(
+            persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json")),
+            sourceRemover: { item in
+                guard let url = item.resolvedURL else { throw CocoaError(.fileNoSuchFile) }
+                try FileManager.default.removeItem(at: url)
+            }
+        )
+        viewModel.add(urls: [sourceURL])
+        let id = try #require(viewModel.items.first?.id)
+
+        viewModel.completeTransfer(ids: [id], result: .moved)
+        await viewModel.waitForPendingOperations()
+
+        #expect(viewModel.items.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
+    }
+
+    @Test func cancelledDropDoesNotChangeSourceOrShelf() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceURL = directory.appendingPathComponent("cancel.txt")
+        try Data("cancel".utf8).write(to: sourceURL)
+        let viewModel = ShelfViewModel(
+            persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json"))
+        )
+        viewModel.add(urls: [sourceURL])
+        let id = try #require(viewModel.items.first?.id)
+
+        viewModel.completeTransfer(ids: [id], result: .cancelled)
+
+        #expect(viewModel.items.map(\.id) == [id])
+        #expect(FileManager.default.fileExists(atPath: sourceURL.path))
+    }
+
+    @Test func partialMoveFailureKeepsFailedItemsInShelf() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let successURL = directory.appendingPathComponent("success.txt")
+        let failureURL = directory.appendingPathComponent("failure.txt")
+        try Data("success".utf8).write(to: successURL)
+        try Data("failure".utf8).write(to: failureURL)
+        let viewModel = ShelfViewModel(
+            persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json")),
+            sourceRemover: { item in
+                guard let url = item.resolvedURL else { throw CocoaError(.fileNoSuchFile) }
+                if url == failureURL { throw CocoaError(.fileWriteNoPermission) }
+                try FileManager.default.removeItem(at: url)
+            }
+        )
+        viewModel.add(urls: [successURL, failureURL])
+        let ids = viewModel.items.map(\.id)
+
+        viewModel.completeTransfer(ids: ids, result: .moved)
+        await viewModel.waitForPendingOperations()
+
+        #expect(viewModel.items.map(\.fallbackURL) == [failureURL])
+        #expect(!FileManager.default.fileExists(atPath: successURL.path))
+        #expect(FileManager.default.fileExists(atPath: failureURL.path))
+        #expect(viewModel.lastError != nil)
     }
 
     private func makeTemporaryDirectory() throws -> URL {

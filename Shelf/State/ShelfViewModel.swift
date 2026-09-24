@@ -8,11 +8,14 @@ import Foundation
 
 enum ShelfViewModelError: LocalizedError {
     case persistence(ShelfPersistenceError)
+    case transferFailures([String])
 
     var errorDescription: String? {
         switch self {
         case let .persistence(error):
             return error.localizedDescription
+        case let .transferFailures(names):
+            return "以下项目未能完成剪切，已保留在 Shelf：\(names.joined(separator: "、"))"
         }
     }
 }
@@ -24,16 +27,20 @@ final class ShelfViewModel: ObservableObject {
 
     private let fileService: ShelfFileService
     private let persistenceService: ShelfPersistenceService
+    private let sourceRemover: (ShelfItem) throws -> Void
     private var saveGeneration = 0
     private var pendingLoadTask: Task<Void, Never>?
     private var pendingSaveTask: Task<Void, Never>?
 
     init(
         fileService: ShelfFileService? = nil,
-        persistenceService: ShelfPersistenceService? = nil
+        persistenceService: ShelfPersistenceService? = nil,
+        sourceRemover: ((ShelfItem) throws -> Void)? = nil
     ) {
-        self.fileService = fileService ?? ShelfFileService()
+        let resolvedFileService = fileService ?? ShelfFileService()
+        self.fileService = resolvedFileService
         self.persistenceService = persistenceService ?? ShelfPersistenceService()
+        self.sourceRemover = sourceRemover ?? { try resolvedFileService.removeSource(for: $0) }
     }
 
     func load() {
@@ -77,6 +84,34 @@ final class ShelfViewModel: ObservableObject {
         schedulePersistence()
     }
 
+    /// Called only after AppKit reports a completed drag operation accepted by the destination.
+    func completeTransfer(ids: [ShelfItem.ID], result: ShelfDropResult) {
+        guard result == .moved else { return }
+        let selectedItems = items.filter { ids.contains($0.id) }
+        guard !selectedItems.isEmpty else { return }
+
+        var completedIDs = Set<ShelfItem.ID>()
+        var failedNames: [String] = []
+        for item in selectedItems {
+            do {
+                try sourceRemover(item)
+            } catch {
+                failedNames.append(item.displayName)
+                continue
+            }
+            completedIDs.insert(item.id)
+        }
+
+        guard !completedIDs.isEmpty || !failedNames.isEmpty else { return }
+        if !completedIDs.isEmpty {
+            items.removeAll { completedIDs.contains($0.id) }
+            schedulePersistence()
+        }
+        if !failedNames.isEmpty {
+            lastError = .transferFailures(failedNames)
+        }
+    }
+
     func refreshStatuses() {
         guard !items.isEmpty else { return }
         let refreshedItems = items.map(fileService.restore(_:))
@@ -93,6 +128,10 @@ final class ShelfViewModel: ObservableObject {
 
     func clearError() {
         lastError = nil
+    }
+
+    func reportTransferError(_ message: String) {
+        lastError = .transferFailures([message])
     }
 
     /// Test and shutdown helper. Mutations still schedule persistence immediately.

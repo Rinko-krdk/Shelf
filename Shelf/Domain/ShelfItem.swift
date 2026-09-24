@@ -16,6 +16,7 @@ enum ShelfItemStatus: String, Codable, Equatable, Sendable {
 struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     var bookmarkData: Data?
+    var bookmarkAllowsWriteAccess: Bool
     var fallbackURLString: String?
     var displayName: String
     var contentTypeIdentifier: String?
@@ -28,6 +29,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     init(
         id: UUID = UUID(),
         bookmarkData: Data? = nil,
+        bookmarkAllowsWriteAccess: Bool = false,
         fallbackURLString: String? = nil,
         displayName: String,
         contentTypeIdentifier: String? = nil,
@@ -37,6 +39,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     ) {
         self.id = id
         self.bookmarkData = bookmarkData
+        self.bookmarkAllowsWriteAccess = bookmarkAllowsWriteAccess
         self.fallbackURLString = fallbackURLString
         self.displayName = displayName
         self.contentTypeIdentifier = contentTypeIdentifier
@@ -53,6 +56,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id
         case bookmarkData
+        case bookmarkAllowsWriteAccess
         case fallbackURLString
         case displayName
         case contentTypeIdentifier
@@ -66,6 +70,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
 
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         bookmarkData = try container.decodeIfPresent(Data.self, forKey: .bookmarkData)
+        bookmarkAllowsWriteAccess = try container.decodeIfPresent(Bool.self, forKey: .bookmarkAllowsWriteAccess) ?? false
         fallbackURLString = decodedFallback
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
             ?? decodedFallback.flatMap { URL(string: $0)?.lastPathComponent }
@@ -80,6 +85,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(bookmarkData, forKey: .bookmarkData)
+        try container.encode(bookmarkAllowsWriteAccess, forKey: .bookmarkAllowsWriteAccess)
         try container.encodeIfPresent(fallbackURLString, forKey: .fallbackURLString)
         try container.encode(displayName, forKey: .displayName)
         try container.encodeIfPresent(contentTypeIdentifier, forKey: .contentTypeIdentifier)
