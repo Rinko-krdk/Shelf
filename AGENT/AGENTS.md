@@ -44,14 +44,17 @@
 
 ```text
 App/
-  ShelfApp.swift              # 应用入口、生命周期
-  AppDelegate.swift            # Menu Bar、窗口与全局事件协调
-  AppEnvironment.swift         # 依赖注入与运行时配置
+  ShelfApp.swift              # 应用入口
+  AppDelegate.swift            # 生命周期与依赖组装
 
 Domain/
   ShelfItem.swift              # Shelf item 与 Codable 模型
-  ShelfStore.swift             # 增删排序、持久化、恢复
-  BookmarkService.swift        # security-scoped bookmark 管理
+State/
+  ShelfViewModel.swift         # Shelf 状态与用户操作
+
+Services/
+  ShelfFileService.swift       # 文件元数据与 security-scoped bookmark
+  ShelfPersistenceService.swift # Application Support JSON 持久化
 
 Features/Shelf/
   ShelfPanelController.swift   # NSPanel 创建、显示、隐藏、焦点策略
@@ -126,7 +129,7 @@ Infrastructure/
 ## 代码与交互规范
 
 - 使用清晰的 Swift 命名、较小的类型和单一职责；避免把 AppKit 窗口控制、持久化和业务状态塞进 View。
-- UI 状态由单一 `ShelfStore` 驱动；不要在多个 View 中各自维护同一份 item 数组。
+- UI 状态由单一 `ShelfViewModel` 驱动；不要在多个 View 中各自维护同一份 item 数组。
 - 异步缩略图加载必须支持取消、缓存和主线程 UI 更新。
 - 所有用户可见字符串集中管理，默认使用简体中文，同时预留本地化结构。
 - 图标、颜色和间距优先使用系统语义值，适配浅色/深色模式和辅助功能字体大小。

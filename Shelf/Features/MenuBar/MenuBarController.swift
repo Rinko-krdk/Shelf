@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import Combine
 
 @MainActor
 final class MenuBarController: NSObject {
@@ -11,12 +12,17 @@ final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
     private let menu: NSMenu
     private let toggleItem: NSMenuItem
+    private let clearItem: NSMenuItem
+    private let viewModel: ShelfViewModel
+    private var itemsCancellable: AnyCancellable?
 
-    init(panelController: ShelfPanelController) {
+    init(panelController: ShelfPanelController, viewModel: ShelfViewModel) {
         self.panelController = panelController
+        self.viewModel = viewModel
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         menu = NSMenu(title: "Shelf")
         toggleItem = NSMenuItem(title: "显示 Shelf", action: nil, keyEquivalent: "")
+        clearItem = NSMenuItem(title: "清空 Shelf", action: #selector(clearShelf(_:)), keyEquivalent: "")
 
         super.init()
 
@@ -25,6 +31,9 @@ final class MenuBarController: NSObject {
 
         panelController.onVisibilityChanged = { [weak self] _ in
             self?.updateToggleItem()
+        }
+        itemsCancellable = viewModel.$items.sink { [weak self] _ in
+            self?.updateClearItem()
         }
     }
 
@@ -54,13 +63,7 @@ final class MenuBarController: NSObject {
         toggleItem.target = self
         toggleItem.identifier = NSUserInterfaceItemIdentifier("toggle-shelf")
 
-        let clearItem = NSMenuItem(
-            title: "清空 Shelf",
-            action: #selector(clearShelf(_:)),
-            keyEquivalent: ""
-        )
         clearItem.target = self
-        clearItem.isEnabled = false
         clearItem.identifier = NSUserInterfaceItemIdentifier("clear-shelf")
 
         let settingsItem = NSMenuItem(
@@ -87,10 +90,15 @@ final class MenuBarController: NSObject {
         menu.addItem(quitItem)
 
         updateToggleItem()
+        updateClearItem()
     }
 
     private func updateToggleItem() {
         toggleItem.title = panelController.isVisible ? "隐藏 Shelf" : "显示 Shelf"
+    }
+
+    private func updateClearItem() {
+        clearItem.isEnabled = !viewModel.items.isEmpty
     }
 
     @objc private func toggleShelf(_ sender: Any?) {
@@ -99,8 +107,7 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func clearShelf(_ sender: Any?) {
-        // Enabled once ShelfStore is introduced. Keeping this action inert protects
-        // the current shell from accidentally touching user files.
+        viewModel.removeAll()
     }
 
     @objc private func openSettings(_ sender: Any?) {

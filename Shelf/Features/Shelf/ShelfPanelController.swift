@@ -20,7 +20,7 @@ final class ShelfPanelController: NSObject, NSWindowDelegate {
 
     var onVisibilityChanged: ((Bool) -> Void)?
 
-    override init() {
+    init(viewModel: ShelfViewModel) {
         panel = ShelfPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .utilityWindow],
@@ -47,7 +47,7 @@ final class ShelfPanelController: NSObject, NSWindowDelegate {
         panel.hasShadow = true
         panel.setAccessibilityIdentifier("shelf-panel")
 
-        let hostingView = NSHostingView(rootView: ContentView())
+        let hostingView = NSHostingView(rootView: ShelfView(viewModel: viewModel))
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         panel.contentView = NSView()
         panel.contentView?.addSubview(hostingView)

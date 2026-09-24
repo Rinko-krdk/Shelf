@@ -2,8 +2,6 @@
 //  ShelfApp.swift
 //  Shelf
 //
-//  Created by Rinko  on 2026/09/24.
-//
 
 import SwiftUI
 

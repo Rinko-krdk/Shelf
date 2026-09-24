@@ -10,15 +10,17 @@
 
 - Git 仓库位于 `Shelf/`，当前分支为 `main`，已有初始提交，尚未配置远端。
 - Xcode 工程名和 scheme 为 `Shelf`，包含 App、单元测试和 UI 测试 target。
-- 当前代码已清理 Xcode 初始 SwiftData 模板，保留 SwiftUI Shelf 占位界面；Menu Bar、AppKit 悬浮 Shelf 窗口和设置入口已实现，文件拖放尚未实现。
+- 当前代码已清理 Xcode 初始 SwiftData 模板；Menu Bar、AppKit 悬浮 Shelf 窗口、设置入口和 Shelf 数据恢复层已实现，文件拖放尚未实现。
 - 工程已明确启用 App Sandbox，部署目标统一为 macOS 15.0，应用 Bundle ID 为 `com.rinko.shelf`，Swift 语言模式为 5.0；后续持久化采用 Codable + Application Support，不使用 SwiftData。
 - `xcodebuild -list` 能识别工程和 `Shelf` scheme；当前仓库把本机 Xcode `xcuserdata` 纳入了初始提交，Git 清理会移除该跟踪并忽略后续用户数据。
 
 ### Phase 1 当前进度
 
 - 已通过 `NSApplicationDelegateAdaptor` 接入 AppKit 生命周期，并将应用设为 accessory activation policy。
-- 已实现 `NSStatusItem` 菜单栏入口、Shelf 显示/隐藏、设置入口和退出操作；清空入口暂时禁用，等待 `ShelfStore` 接入。
+- 已实现 `NSStatusItem` 菜单栏入口、Shelf 显示/隐藏、设置入口、清空和退出操作。
 - 已实现承载 SwiftUI 内容的浮动 `NSPanel`，支持窗口移动、调整大小、Esc 隐藏和全屏辅助空间行为。
+- 已实现 `ShelfItem`、版本化 `ShelfDocument`、`ShelfViewModel` 和 security-scoped bookmark 恢复；数据写入 Application Support，并使用临时文件加原子替换。
+- 已加入损坏 JSON 隔离、单 item 解码容错、失效状态恢复、重复 item 保留和不触碰原文件的领域测试。
 - 已加入菜单栏、Panel 显示/隐藏和设置入口的 UI 测试骨架；全局快捷键、点击外部隐藏和拖放期间窗口策略留待后续阶段。
 
 ## 2. 目标用户流程
@@ -172,9 +174,11 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 
 ### Phase 2：Shelf 状态与拖入
 
+当前进度：Shelf 状态模型、单一 ViewModel、Application Support 原子持久化和 bookmark 恢复已完成；拖入和拖出仍待后续阶段。
+
 产出：
 
-- `ShelfStore` 与 `ShelfItem` 数据模型。
+- `ShelfViewModel` 与 `ShelfItem` 数据模型。
 - 支持批量拖入文件和文件夹。
 - item 顺序、唯一 ID、重复 item 处理。
 - security-scoped bookmark 创建与存储。
