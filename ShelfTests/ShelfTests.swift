@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UniformTypeIdentifiers
 import Testing
 @testable import Shelf
 
@@ -58,6 +59,32 @@ struct ShelfTests {
         #expect(item.resolvedURL == sourceURL)
     }
 
+    @Test func dropImporterDecodesFileURLsAndRejectsWebURLs() throws {
+        let fileURL = URL(fileURLWithPath: "/tmp/中文 文件 😀.txt")
+
+        #expect(ShelfDropImporter.decodeFileURL(from: fileURL as NSURL) == fileURL)
+        #expect(ShelfDropImporter.decodeFileURL(from: fileURL.absoluteString as NSString) == fileURL)
+        #expect(
+            ShelfDropImporter.decodeFileURL(from: fileURL.dataRepresentation as NSData) == fileURL
+        )
+        let webURL = try #require(URL(string: "https://example.com"))
+        #expect(ShelfDropImporter.decodeFileURL(from: webURL as NSURL) == nil)
+    }
+
+    @Test func dropImporterPreservesProviderOrderAndDuplicates() async throws {
+        let firstURL = URL(fileURLWithPath: "/tmp/first.txt")
+        let secondURL = URL(fileURLWithPath: "/tmp/second.txt")
+        let providers = [
+            makeFileURLProvider(firstURL, delay: 0.04),
+            makeFileURLProvider(secondURL, delay: 0.01),
+            makeFileURLProvider(firstURL, delay: 0.02)
+        ]
+
+        let urls = await ShelfDropImporter.loadFileURLs(from: providers)
+
+        #expect(urls == [firstURL, secondURL, firstURL])
+    }
+
     @Test func storePersistsOrderAndKeepsDuplicateItems() async throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -81,6 +108,20 @@ struct ShelfTests {
         #expect(restoredViewModel.items.count == 2)
         #expect(restoredViewModel.items.map(\.displayName) == ["first.txt", "first.txt"])
         #expect(restoredViewModel.items[0].id != restoredViewModel.items[1].id)
+    }
+
+    @Test func directoryIsAddedAsOneItem() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let folderURL = directory.appendingPathComponent("Folder", isDirectory: true)
+        try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+
+        let viewModel = ShelfViewModel()
+        viewModel.add(urls: [folderURL])
+
+        #expect(viewModel.items.count == 1)
+        #expect(viewModel.items[0].displayName == "Folder")
+        #expect(viewModel.items[0].resolvedURL == folderURL)
     }
 
     @Test func storeRestoresStatusWithoutDroppingItem() async throws {
@@ -153,5 +194,21 @@ struct ShelfTests {
             .appendingPathComponent("ShelfTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    private func makeFileURLProvider(_ url: URL, delay: TimeInterval) -> NSItemProvider {
+        let provider = NSItemProvider()
+        provider.registerDataRepresentation(
+            forTypeIdentifier: UTType.fileURL.identifier,
+            visibility: .all
+        ) { completion in
+            let progress = Progress(totalUnitCount: 1)
+            DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                completion(url.dataRepresentation, nil)
+                progress.completedUnitCount = 1
+            }
+            return progress
+        }
+        return provider
     }
 }

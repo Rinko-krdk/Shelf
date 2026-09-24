@@ -31,6 +31,7 @@ final class ShelfUITests: XCTestCase {
 
         app.menuItems["显示 Shelf"].click()
         XCTAssertTrue(app.windows["shelf-panel"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["shelf-empty-state"].waitForExistence(timeout: 2))
 
         statusItem.click()
         XCTAssertTrue(app.menuItems["隐藏 Shelf"].waitForExistence(timeout: 2))

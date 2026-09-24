@@ -10,7 +10,7 @@
 
 - Git 仓库位于 `Shelf/`，当前分支为 `main`，已有初始提交，尚未配置远端。
 - Xcode 工程名和 scheme 为 `Shelf`，包含 App、单元测试和 UI 测试 target。
-- 当前代码已清理 Xcode 初始 SwiftData 模板；Menu Bar、AppKit 悬浮 Shelf 窗口、设置入口和 Shelf 数据恢复层已实现，文件拖放尚未实现。
+- 当前代码已清理 Xcode 初始 SwiftData 模板；Menu Bar、AppKit 悬浮 Shelf 窗口、设置入口、Shelf 数据恢复、文件拖入和拖出及删除已实现。
 - 工程已明确启用 App Sandbox，部署目标统一为 macOS 15.0，应用 Bundle ID 为 `com.rinko.shelf`，Swift 语言模式为 5.0；后续持久化采用 Codable + Application Support，不使用 SwiftData。
 - `xcodebuild -list` 能识别工程和 `Shelf` scheme；当前仓库把本机 Xcode `xcuserdata` 纳入了初始提交，Git 清理会移除该跟踪并忽略后续用户数据。
 
@@ -20,8 +20,11 @@
 - 已实现 `NSStatusItem` 菜单栏入口、Shelf 显示/隐藏、设置入口、清空和退出操作。
 - 已实现承载 SwiftUI 内容的浮动 `NSPanel`，支持窗口移动、调整大小、Esc 隐藏和全屏辅助空间行为。
 - 已实现 `ShelfItem`、版本化 `ShelfDocument`、`ShelfViewModel` 和 security-scoped bookmark 恢复；数据写入 Application Support，并使用临时文件加原子替换。
+- 已接入 Shelf 内容区文件拖入，支持文件 URL/常见 URL 数据、多文件顺序和重复项；Shelf 使用自适应紧凑网格展示名称、状态、Quick Look 缩略图和系统图标降级。
+- 已添加异步缩略图服务，按 item ID 缓存并在卡片离开视图时取消请求；生成期间维持 security-scoped URL 访问。
 - 已加入损坏 JSON 隔离、单 item 解码容错、失效状态恢复、重复 item 保留和不触碰原文件的领域测试。
-- 已加入菜单栏、Panel 显示/隐藏和设置入口的 UI 测试骨架；全局快捷键、点击外部隐藏和拖放期间窗口策略留待后续阶段。
+- 已实现单项移除和清空确认；拖出通过文件 URL 提供原始文件引用，拖动取消或完成均保留 Shelf item。
+- 已加入菜单栏、Panel 显示/隐藏和设置入口的 UI 测试骨架，以及拖放 URL 解码、顺序、重复项和原文件保留测试；全局快捷键、点击外部隐藏和拖放期间窗口策略留待后续阶段。
 
 ## 2. 目标用户流程
 
@@ -174,30 +177,32 @@ struct ShelfItem: Identifiable, Codable, Equatable {
 
 ### Phase 2：Shelf 状态与拖入
 
-当前进度：Shelf 状态模型、单一 ViewModel、Application Support 原子持久化和 bookmark 恢复已完成；拖入和拖出仍待后续阶段。
+当前进度：Shelf 状态模型、单一 ViewModel、Application Support 原子持久化和 bookmark 恢复已完成；文件拖入、缩略图和网格展示已完成；拖出与删除归 Phase 4。
 
 产出：
 
 - `ShelfViewModel` 与 `ShelfItem` 数据模型。
-- 支持批量拖入文件和文件夹。
+- 支持批量拖入文件和文件夹；（已完成）
 - item 顺序、唯一 ID、重复 item 处理。
 - security-scoped bookmark 创建与存储。
 - 原子持久化和启动恢复骨架。
 
-完成标志：拖入的文件列表稳定显示，重启后能恢复，删除原文件后 item 不会静默消失。
+完成标志：拖入的文件列表稳定显示，重启后能恢复，删除原文件后 item 不会静默消失。拖入和基础展示已完成；拖出归 Phase 4。
 
 ### Phase 3：缩略图与完整 UI
 
 产出：
 
-- Quick Look 缩略图异步生成、缓存和取消。
-- 无缩略图时的系统图标降级。
-- 文件名排版、tooltip、失效状态、空状态和加载状态。
-- 浅色/深色模式、辅助功能标签和键盘操作。
+- Quick Look 缩略图异步生成、缓存和取消。（已完成）
+- 无缩略图时的系统图标降级。（已完成）
+- 文件名排版、tooltip、失效状态和空状态。（已完成）
+- 浅色/深色模式和辅助功能标签。（已完成；键盘操作可随拖出/删除交互完善）
 
 完成标志：常见文件类型和异常文件状态下，Shelf 视觉反馈清晰且无明显卡顿。
 
 ### Phase 4：拖出与删除
+
+当前进度：单项拖出、单项移除和清空 Shelf 已实现。拖出传递原始文件 URL，不在拖动结束后移除 item；移除和清空均需明确确认。
 
 产出：
 

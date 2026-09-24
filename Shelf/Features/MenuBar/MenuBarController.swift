@@ -107,6 +107,14 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func clearShelf(_ sender: Any?) {
+        guard !viewModel.items.isEmpty else { return }
+        let alert = NSAlert()
+        alert.messageText = "清空 Shelf？"
+        alert.informativeText = "只会移除 Shelf 中的引用，不会删除原文件。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "清空 Shelf")
+        alert.addButton(withTitle: "取消")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
         viewModel.removeAll()
     }
 

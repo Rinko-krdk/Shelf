@@ -4,9 +4,15 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ShelfView: View {
     @ObservedObject var viewModel: ShelfViewModel
+    @StateObject private var thumbnailService = ThumbnailService()
+    @State private var isDropTargeted = false
+    @State private var isConfirmingClear = false
+
+    private let columns = [GridItem(.adaptive(minimum: 112, maximum: 150), spacing: 12)]
 
     var body: some View {
         Group {
@@ -16,59 +22,79 @@ struct ShelfView: View {
                 } description: {
                     Text("将文件拖入这里暂存。")
                 }
+                .accessibilityIdentifier("shelf-empty-state")
             } else {
-                List(viewModel.items) { item in
-                    HStack(spacing: 10) {
-                        Image(systemName: statusSymbol(for: item.status))
-                            .foregroundStyle(statusColor(for: item.status))
-                            .frame(width: 20)
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.displayName)
-                                .lineLimit(1)
-                            Text(statusDescription(for: item.status))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Shelf · \(viewModel.items.count)")
+                            .font(.headline)
+                        Spacer()
+                        Button("清空") { isConfirmingClear = true }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("clear-shelf-button")
                     }
-                    .accessibilityIdentifier("shelf-item-\(item.id.uuidString)")
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+
+                    ScrollView {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                            ForEach(viewModel.items) { item in
+                                ShelfItemCard(
+                                    item: item,
+                                    thumbnailService: thumbnailService,
+                                    onRemove: viewModel.remove(id:)
+                                )
+                            }
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("shelf-item-grid")
                 }
-                .listStyle(.plain)
             }
         }
-        .padding(12)
-        .accessibilityIdentifier("shelf-empty-state")
-    }
-
-    private func statusSymbol(for status: ShelfItemStatus) -> String {
-        switch status {
-        case .available:
-            return "doc"
-        case .missing:
-            return "questionmark.square"
-        case .inaccessible:
-            return "lock"
-        case .staleBookmark, .bookmarkResolutionFailed:
-            return "exclamationmark.triangle"
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isDropTargeted ? Color.accentColor.opacity(0.12) : Color.clear)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(
+                            isDropTargeted ? Color.accentColor : Color.clear,
+                            style: StrokeStyle(lineWidth: 2, dash: [6, 4])
+                        )
+                }
+                .padding(3)
+                .allowsHitTesting(false)
+        }
+        .onDrop(
+            of: [UTType.fileURL, UTType.url],
+            isTargeted: $isDropTargeted,
+            perform: handleDrop
+        )
+        .onChange(of: viewModel.items.map(\.id)) { _, itemIDs in
+            thumbnailService.retainThumbnails(for: Set(itemIDs))
+        }
+        .confirmationDialog(
+            "清空 Shelf？",
+            isPresented: $isConfirmingClear,
+            titleVisibility: .visible
+        ) {
+            Button("清空 Shelf", role: .destructive) { viewModel.removeAll() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("只会移除 Shelf 中的引用，不会删除原文件。")
         }
     }
 
-    private func statusColor(for status: ShelfItemStatus) -> Color {
-        status == .available ? .accentColor : .orange
-    }
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard !providers.isEmpty else { return false }
 
-    private func statusDescription(for status: ShelfItemStatus) -> String {
-        switch status {
-        case .available:
-            return "可用"
-        case .missing:
-            return "文件不存在"
-        case .inaccessible:
-            return "无法访问"
-        case .staleBookmark:
-            return "文件引用已失效"
-        case .bookmarkResolutionFailed:
-            return "无法恢复文件引用"
+        Task { @MainActor in
+            let urls = await ShelfDropImporter.loadFileURLs(from: providers)
+            guard !urls.isEmpty else { return }
+            viewModel.add(urls: urls)
         }
+        return true
     }
 }
