@@ -16,7 +16,7 @@ final class ShelfPanelController: NSObject, ObservableObject, NSWindowDelegate {
     private let contentSize = NSSize(width: 148, height: 92)
     private let frameInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
     private var overflowListHeight: CGFloat = 0
-    private let expandedListSpacing: CGFloat = 6
+    private let expandedListSpacing: CGFloat = 13
     private var panelSize: NSSize {
         NSSize(
             width: contentSize.width + frameInsets.left + frameInsets.right,
@@ -238,7 +238,7 @@ private final class ShelfPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) { onCancelOperation?() }
 }
 
-private final class ShelfPanelFrameView: NSVisualEffectView {
+private final class ShelfPanelFrameView: NSView {
     private let contentInsets: NSEdgeInsets
     private var lastMouseLocation: NSPoint?
     private var isMovingPanel = false
@@ -249,14 +249,6 @@ private final class ShelfPanelFrameView: NSVisualEffectView {
     init(contentInsets: NSEdgeInsets) {
         self.contentInsets = contentInsets
         super.init(frame: .zero)
-        material = .hudWindow
-        blendingMode = .behindWindow
-        state = .active
-        wantsLayer = true
-        layer?.cornerRadius = 22
-        layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.22).cgColor
-        layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.12).cgColor
     }
 
     required init?(coder: NSCoder) {

@@ -8,6 +8,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ShelfView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var viewModel: ShelfViewModel
     @ObservedObject var panelController: ShelfPanelController
     @State private var isDropTargeted = false
@@ -39,6 +40,11 @@ struct ShelfView: View {
                     VStack(spacing: 7) {
                         Button { isConfirmingClear = true } label: {
                             Image(systemName: "trash")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .background(.regularMaterial, in: Circle())
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                         }
                         .help("清空 Shelf")
                         .accessibilityLabel("清空 Shelf")
@@ -47,6 +53,11 @@ struct ShelfView: View {
 
                         Button { panelController.hide() } label: {
                             Image(systemName: "xmark")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .background(.regularMaterial, in: Circle())
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                         }
                         .help("隐藏并清空 Shelf")
                         .accessibilityLabel("隐藏并清空 Shelf")
@@ -54,15 +65,20 @@ struct ShelfView: View {
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .medium))
-                    .frame(width: 22)
-                    .transition(.opacity)
+                    .frame(width: 28)
+                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .trailing)))
                 } else {
-                    Color.clear.frame(width: 22)
+                    Color.clear.frame(width: 28)
                 }
             }
             .frame(width: 148, height: 92)
 
             if isExpanded {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(height: 1)
+                    .padding(.horizontal, 12)
+
                 FileStackListView(
                     items: viewModel.items,
                     selectedIDs: Set(selection.selectedIDs),
@@ -76,17 +92,25 @@ struct ShelfView: View {
             }
         }
         .frame(width: 148, height: contentHeight, alignment: .top)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.regularMaterial)
+                .overlay {
+                    if isDropTargeted {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color.accentColor.opacity(0.08))
+                    }
+                }
+        }
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(isDropTargeted ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(isDropTargeted ? Color.accentColor.opacity(0.9) : Color.primary.opacity(0.08), lineWidth: 1)
                 .allowsHitTesting(false)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityIdentifier("shelf-content-panel")
         .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.12)) { isHovering = hovering }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) { isHovering = hovering }
             if hovering { panelController.beginInteraction() }
             else { panelController.endInteraction() }
         }
@@ -177,7 +201,7 @@ struct ShelfView: View {
     }
 
     private var contentHeight: CGFloat {
-        92 + (isExpanded ? 6 + expandedListHeight : 0)
+        92 + (isExpanded ? 13 + expandedListHeight : 0)
     }
 
     private func selectItem(_ id: ShelfItem.ID, _ modifiers: NSEvent.ModifierFlags) {
@@ -191,7 +215,7 @@ struct ShelfView: View {
 
     private func toggleOverflow() {
         guard viewModel.items.count > FileStackPresentation.maximumVisibleIcons else { return }
-        withAnimation(.easeInOut(duration: 0.18)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.86)) {
             isExpanded.toggle()
         }
     }

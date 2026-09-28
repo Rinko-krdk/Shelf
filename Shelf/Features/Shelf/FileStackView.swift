@@ -44,12 +44,16 @@ struct FileStackView: View {
             }
 
             if items.isEmpty {
-                Image(systemName: "tray.and.arrow.down")
-                    .font(.system(size: 26, weight: .regular))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 68, height: 62)
-                    .frame(width: 102, height: 72)
-                    .accessibilityLabel("空 Shelf")
+                VStack(spacing: 5) {
+                    Image(systemName: "tray.and.arrow.down")
+                        .font(.system(size: 23, weight: .regular))
+                    Text("拖入文件")
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .foregroundStyle(.secondary)
+                .frame(width: 68, height: 62)
+                .frame(width: 102, height: 72)
+                .accessibilityLabel("空 Shelf，拖入文件以暂存")
             }
 
             if let badgeText = presentation.badgeText {
@@ -91,7 +95,7 @@ struct FileStackView: View {
                 .opacity(item.status == .available ? 1 : 0.55)
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .strokeBorder(
-                    selectedIDs.contains(item.id) ? Color.accentColor : Color.white.opacity(0.35),
+                    selectedIDs.contains(item.id) ? Color.accentColor : Color.primary.opacity(0.12),
                     lineWidth: selectedIDs.contains(item.id) ? 2 : 1
                 )
                 .allowsHitTesting(false)
@@ -123,6 +127,8 @@ struct FileStackView: View {
 }
 
 struct FileStackListView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hoveredItemID: ShelfItem.ID?
     static let rowHeight: CGFloat = 36
     static let maximumHeight: CGFloat = 180
 
@@ -149,12 +155,6 @@ struct FileStackListView: View {
             .padding(4)
         }
         .frame(height: Self.height(for: items.count))
-        .background(.background.opacity(0.72), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(.quaternary, lineWidth: 1)
-                .allowsHitTesting(false)
-        }
         .accessibilityIdentifier("shelf-expanded-file-list")
     }
 
@@ -185,7 +185,9 @@ struct FileStackListView: View {
             .padding(.horizontal, 7)
             .frame(height: Self.rowHeight - 2)
             .background(
-                selectedIDs.contains(item.id) ? Color.accentColor.opacity(0.12) : Color.clear,
+                selectedIDs.contains(item.id)
+                    ? Color.accentColor.opacity(0.12)
+                    : (hoveredItemID == item.id ? Color.primary.opacity(0.055) : Color.clear),
                 in: RoundedRectangle(cornerRadius: 7, style: .continuous)
             )
             .overlay {
@@ -210,6 +212,15 @@ struct FileStackListView: View {
         }
         .frame(height: Self.rowHeight - 2)
         .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .onHover { hovering in
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
+                if hovering {
+                    hoveredItemID = item.id
+                } else if hoveredItemID == item.id {
+                    hoveredItemID = nil
+                }
+            }
+        }
     }
 
     private func icon(for item: ShelfItem) -> NSImage {
