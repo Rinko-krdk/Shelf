@@ -57,7 +57,7 @@ struct ShelfDragSourceView: NSViewRepresentable {
         view.setAccessibilityElement(true)
         view.setAccessibilityLabel(item.displayName)
         view.setAccessibilityIdentifier(accessibilityIdentifier)
-        view.setAccessibilityValue(isSelected ? "已选中" : "未选中")
+        view.setAccessibilityValue(isSelected ? L10n.string("Selected") : L10n.string("Not selected"))
     }
 }
 
@@ -116,12 +116,12 @@ final class DragSourceNSView: NSView, NSDraggingSource {
             selectionAtMouseDown: selectionAtMouseDown
         )
         guard !dragItems.isEmpty else {
-            rejectDrag("Shelf 中没有可拖出的文件。")
+            rejectDrag(L10n.string("There are no files to drag from Shelf."))
             return
         }
         let unavailableItems = ShelfDragEligibility.unavailableItems(in: dragItems)
         guard ShelfDragEligibility.canStartDrag(dragItems) else {
-            rejectDrag("无法拖出：\(unavailableItems.map(\.displayName).joined(separator: "、"))。请重新定位或移除这些项目。")
+            rejectDrag(L10n.string("Could not drag out %@. Relocate or remove these items.", unavailableItems.map(\.displayName).joined(separator: ", ")))
             return
         }
 
@@ -157,7 +157,7 @@ final class DragSourceNSView: NSView, NSDraggingSource {
             return dragItem
         }
         guard draggingItems.count == dragItems.count else {
-            rejectDrag("无法为所有暂存文件创建拖动预览；请检查文件是否仍可访问。")
+            rejectDrag(L10n.string("Could not create drag previews for all staged files. Check that the files are still accessible."))
             return
         }
 

@@ -17,6 +17,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        if ProcessInfo.processInfo.arguments.contains("--shelf-reset-language") {
+            LanguageManager.shared.setLanguage(.english)
+        }
 
         let viewModel = ShelfViewModel()
         viewModel.removeAllForSessionBoundary()
@@ -61,10 +64,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         shortcutService.onShortcut = { [weak panelController] in panelController?.toggle() }
         if !shortcutService.register(), let message = shortcutService.lastError {
             let alert = NSAlert()
-            alert.messageText = "全局快捷键不可用"
-            alert.informativeText = "\(message)\n\n仍可通过菜单栏图标显示或隐藏 Shelf，也可以在设置中更改快捷键。"
+            alert.messageText = L10n.string("Global Shortcut Unavailable")
+            alert.informativeText = "\(message)\n\n\(L10n.string("You can still show or hide Shelf from the menu bar, or change the shortcut in Settings."))"
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "好")
+            alert.addButton(withTitle: L10n.string("OK"))
             alert.runModal()
         }
 

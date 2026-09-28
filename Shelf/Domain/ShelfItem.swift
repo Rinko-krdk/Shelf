@@ -74,7 +74,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
         fallbackURLString = decodedFallback
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
             ?? decodedFallback.flatMap { URL(string: $0)?.lastPathComponent }
-            ?? "未命名文件"
+            ?? L10n.string("Untitled File")
         contentTypeIdentifier = try container.decodeIfPresent(String.self, forKey: .contentTypeIdentifier)
         addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
         status = try container.decodeIfPresent(ShelfItemStatus.self, forKey: .status) ?? .bookmarkResolutionFailed

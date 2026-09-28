@@ -8,6 +8,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ShelfView: View {
+    @ObservedObject private var languageManager = LanguageManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var viewModel: ShelfViewModel
     @ObservedObject var panelController: ShelfPanelController
@@ -46,8 +47,8 @@ struct ShelfView: View {
                                 .background(.regularMaterial, in: Circle())
                                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                         }
-                        .help("清空 Shelf")
-                        .accessibilityLabel("清空 Shelf")
+                        .help(L10n.string("Clear Shelf"))
+                        .accessibilityLabel(L10n.string("Clear Shelf"))
                         .accessibilityIdentifier("shelf-clear-button")
                         .disabled(viewModel.items.isEmpty)
 
@@ -59,8 +60,8 @@ struct ShelfView: View {
                                 .background(.regularMaterial, in: Circle())
                                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                         }
-                        .help("隐藏并清空 Shelf")
-                        .accessibilityLabel("隐藏并清空 Shelf")
+                        .help(L10n.string("Hide and clear Shelf"))
+                        .accessibilityLabel(L10n.string("Hide and clear Shelf"))
                         .accessibilityIdentifier("shelf-hide-button")
                     }
                     .buttonStyle(.plain)
@@ -148,29 +149,29 @@ struct ShelfView: View {
         }
         .contextMenu {
             if !viewModel.items.isEmpty {
-                Button("清空 Shelf", role: .destructive) { isConfirmingClear = true }
+                Button(L10n.string("Clear Shelf"), role: .destructive) { isConfirmingClear = true }
             }
         }
         .confirmationDialog(
-            "清空 Shelf？",
+            L10n.string("Clear Shelf?"),
             isPresented: $isConfirmingClear,
             titleVisibility: .visible
         ) {
-            Button("清空 Shelf", role: .destructive) {
+            Button(L10n.string("Clear Shelf"), role: .destructive) {
                 viewModel.removeAll()
                 panelController.hideIfEmptyImmediately()
             }
-            Button("取消", role: .cancel) {}
+            Button(L10n.string("Cancel"), role: .cancel) {}
         } message: {
-            Text("只会移除 Shelf 中的引用，不会删除原文件。")
+            Text(L10n.string("This removes references from Shelf only. Original files will not be deleted."))
         }
-        .alert("Shelf 提示", isPresented: Binding(
+        .alert(L10n.string("Shelf Notice"), isPresented: Binding(
             get: { viewModel.lastError != nil },
             set: { if !$0 { viewModel.clearError() } }
         )) {
-            Button("好") { viewModel.clearError() }
+            Button(L10n.string("OK")) { viewModel.clearError() }
         } message: {
-            Text(viewModel.lastError?.localizedDescription ?? "发生了未知错误。")
+            Text(viewModel.lastError?.localizedDescription ?? L10n.string("An unknown error occurred."))
         }
     }
 
@@ -191,7 +192,7 @@ struct ShelfView: View {
             panelController.hideIfEmptyImmediately()
             return
         }
-        viewModel.reportTransferError("\(viewModel.items.first(where: { $0.id == id })?.displayName ?? "所选项目")未能放置：\(error.localizedDescription)")
+        viewModel.reportTransferError(L10n.string("%@ could not be placed: %@", viewModel.items.first(where: { $0.id == id })?.displayName ?? L10n.string("Selected item"), error.localizedDescription))
     }
 
     private var orderedIDs: [ShelfItem.ID] { viewModel.items.map(\.id) }
@@ -225,7 +226,7 @@ struct ShelfView: View {
               item.status == .available,
               let url = item.resolvedURL,
               url.isFileURL else {
-            viewModel.reportTransferError("该文件当前不可用，无法打开。")
+            viewModel.reportTransferError(L10n.string("This file is unavailable and cannot be opened."))
             return
         }
 
@@ -233,7 +234,7 @@ struct ShelfView: View {
         let opened = NSWorkspace.shared.open(url)
         if startedAccessing { url.stopAccessingSecurityScopedResource() }
         if !opened {
-            viewModel.reportTransferError("无法打开文件：\(item.displayName)。请检查文件访问权限。")
+            viewModel.reportTransferError(L10n.string("Could not open %@. Check file access permissions.", item.displayName))
         }
     }
 

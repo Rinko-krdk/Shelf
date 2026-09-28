@@ -24,6 +24,7 @@ struct FileStackPresentation: Equatable {
 }
 
 struct FileStackView: View {
+    @ObservedObject private var languageManager = LanguageManager.shared
     let items: [ShelfItem]
     let selectedIDs: Set<ShelfItem.ID>
     let onSelect: (ShelfItem.ID, NSEvent.ModifierFlags) -> Void
@@ -47,13 +48,13 @@ struct FileStackView: View {
                 VStack(spacing: 5) {
                     Image(systemName: "tray.and.arrow.down")
                         .font(.system(size: 23, weight: .regular))
-                    Text("拖入文件")
+                    Text(L10n.string("Drop files here"))
                         .font(.system(size: 10, weight: .medium))
                 }
                 .foregroundStyle(.secondary)
                 .frame(width: 68, height: 62)
                 .frame(width: 102, height: 72)
-                .accessibilityLabel("空 Shelf，拖入文件以暂存")
+                .accessibilityLabel(L10n.string("Empty Shelf. Drop files here to stage them."))
             }
 
             if let badgeText = presentation.badgeText {
@@ -71,15 +72,15 @@ struct FileStackView: View {
                     .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
-                .help("展开剩余 \(presentation.hiddenItemCount) 个文件")
-                .accessibilityLabel("展开剩余 \(presentation.hiddenItemCount) 个文件")
+                .help(presentation.hiddenItemCount == 1 ? L10n.string("Show one more file") : L10n.string("Show %d more files", presentation.hiddenItemCount))
+                .accessibilityLabel(presentation.hiddenItemCount == 1 ? L10n.string("Show one more file") : L10n.string("Show %d more files", presentation.hiddenItemCount))
                 .accessibilityIdentifier("shelf-overflow-toggle")
                 .offset(x: 72, y: -3)
                 .zIndex(10)
             }
         }
         .frame(width: 102, height: 72)
-        .accessibilityLabel(items.isEmpty ? "空 Shelf" : "\(items.count) 个暂存文件")
+        .accessibilityLabel(items.isEmpty ? L10n.string("Empty Shelf") : (items.count == 1 ? L10n.string("One staged file") : L10n.string("%d staged files", items.count)))
         .accessibilityIdentifier("shelf-file-stack")
     }
 
@@ -127,6 +128,7 @@ struct FileStackView: View {
 }
 
 struct FileStackListView: View {
+    @ObservedObject private var languageManager = LanguageManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredItemID: ShelfItem.ID?
     static let rowHeight: CGFloat = 36

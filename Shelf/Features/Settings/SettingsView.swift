@@ -9,11 +9,24 @@ import Carbon
 
 struct SettingsView: View {
     @ObservedObject var shortcutService: ShortcutService
+    @ObservedObject private var languageManager = LanguageManager.shared
     @State private var isRecording = false
 
     var body: some View {
         Form {
-            Section("快捷键") {
+            Section(L10n.string("Language")) {
+                Picker(L10n.string("App Language"), selection: Binding(
+                    get: { languageManager.language },
+                    set: { languageManager.setLanguage($0) }
+                )) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .accessibilityIdentifier("app-language-picker")
+            }
+
+            Section(L10n.string("Shortcut")) {
                 LabeledContent {
                     Text(shortcutService.shortcut.displayName)
                         .monospaced()
@@ -23,7 +36,7 @@ struct SettingsView: View {
                         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
                         .accessibilityIdentifier("current-shelf-shortcut")
                 } label: {
-                    Label("呼出 / 隐藏 Shelf", systemImage: "rectangle.inset.filled.and.person.filled")
+                    Label(L10n.string("Show / Hide Shelf"), systemImage: "rectangle.inset.filled.and.person.filled")
                 }
 
                 HStack {
@@ -38,12 +51,12 @@ struct SettingsView: View {
                         }
                         .frame(width: 1, height: 1)
 
-                        Text("按下新的快捷键组合…")
+                        Text(L10n.string("Press a new shortcut…"))
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("shortcut-recording-prompt")
                     }
                     Spacer()
-                    Button(isRecording ? "取消录制" : "更改快捷键") {
+                    Button(isRecording ? L10n.string("Cancel Recording") : L10n.string("Change Shortcut")) {
                         isRecording.toggle()
                     }
                     .accessibilityIdentifier("record-shelf-shortcut-button")
@@ -60,7 +73,7 @@ struct SettingsView: View {
 
             Section {
                 Label {
-                    Text("录制时按下包含修饰键的组合。若系统无法注册，当前快捷键会继续生效。")
+                    Text(L10n.string("Press a shortcut that includes a modifier key. If macOS cannot register it, your current shortcut will stay active."))
                 } icon: {
                     Image(systemName: "info.circle")
                 }
@@ -71,7 +84,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 420)
         .padding()
-        .navigationTitle("设置")
+        .navigationTitle(L10n.string("Settings"))
         .accessibilityIdentifier("shelf-settings")
     }
 }

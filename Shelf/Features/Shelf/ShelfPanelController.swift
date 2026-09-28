@@ -27,6 +27,7 @@ final class ShelfPanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var presentationPoint = NSEvent.mouseLocation
     private var pendingEmptyDismissTask: Task<Void, Never>?
     private var screenParametersObserver: NSObjectProtocol?
+    private var languageCancellable: AnyCancellable?
 
     var onVisibilityChanged: ((Bool) -> Void)?
 
@@ -56,13 +57,16 @@ final class ShelfPanelController: NSObject, ObservableObject, NSWindowDelegate {
 
         let frameView = ShelfPanelFrameView(contentInsets: frameInsets)
         frameView.setAccessibilityElement(true)
-        frameView.setAccessibilityLabel("拖动外框以移动 Shelf")
+        frameView.setAccessibilityLabel(L10n.string("Drag the frame to move Shelf"))
         frameView.setAccessibilityIdentifier("shelf-window-move-handle")
         frameView.onInteractionChanged = { [weak self] isInteracting in
             if isInteracting { self?.beginInteraction() }
             else { self?.endInteraction() }
         }
         panel.contentView = frameView
+        languageCancellable = LanguageManager.shared.$language.sink { [weak frameView] _ in
+            frameView?.setAccessibilityLabel(L10n.string("Drag the frame to move Shelf"))
+        }
 
         let hostingView = NSHostingView(rootView: ShelfView(viewModel: viewModel, panelController: self))
         hostingView.translatesAutoresizingMaskIntoConstraints = false

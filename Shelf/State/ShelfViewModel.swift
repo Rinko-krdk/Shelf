@@ -15,7 +15,7 @@ enum ShelfViewModelError: LocalizedError {
         case let .persistence(error):
             return error.localizedDescription
         case let .transferFailures(names):
-            return "以下项目未能完成剪切，已保留在 Shelf：\(names.joined(separator: "、"))"
+            return L10n.string("These items could not be moved and remain in Shelf: %@", names.joined(separator: ", "))
         }
     }
 }

@@ -8,6 +8,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ShelfItemCard: View {
+    @ObservedObject private var languageManager = LanguageManager.shared
     let item: ShelfItem
     @ObservedObject var thumbnailService: ThumbnailService
     let isSelected: Bool
@@ -71,8 +72,8 @@ struct ShelfItemCard: View {
                         .background(.regularMaterial, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .help("从 Shelf 移除")
-                .accessibilityLabel("移除 \(item.displayName)")
+                .help(L10n.string("Remove from Shelf"))
+                .accessibilityLabel(L10n.string("Remove %@", item.displayName))
                 .accessibilityIdentifier("remove-shelf-item-\(item.id.uuidString)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 .padding(5)
@@ -94,7 +95,7 @@ struct ShelfItemCard: View {
 
             if item.status != .available {
                 Button(action: chooseReplacement) {
-                    Label("重新选择…", systemImage: "arrow.triangle.2.circlepath")
+                    Label(L10n.string("Choose Again…"), systemImage: "arrow.triangle.2.circlepath")
                         .font(.caption2)
                 }
                 .buttonStyle(.link)
@@ -121,14 +122,14 @@ struct ShelfItemCard: View {
         .accessibilityIdentifier("shelf-item-\(item.id.uuidString)")
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .confirmationDialog(
-            "从 Shelf 移除“\(item.displayName)”？",
+            L10n.string("Remove “%@” from Shelf?", item.displayName),
             isPresented: $isConfirmingRemoval,
             titleVisibility: .visible
         ) {
-            Button("从 Shelf 移除", role: .destructive) { onRemove(item.id) }
-            Button("取消", role: .cancel) {}
+            Button(L10n.string("Remove from Shelf"), role: .destructive) { onRemove(item.id) }
+            Button(L10n.string("Cancel"), role: .cancel) {}
         } message: {
-            Text("只会移除 Shelf 中的引用，不会删除原文件。")
+            Text(L10n.string("This removes references from Shelf only. Original files will not be deleted."))
         }
         .task(id: item.id) {
             thumbnail = await thumbnailService.thumbnail(for: item, size: previewSize)
@@ -179,15 +180,15 @@ struct ShelfItemCard: View {
     private var statusDescription: String {
         switch item.status {
         case .available:
-            return "可用"
+            return L10n.string("Available")
         case .missing:
-            return "文件不存在"
+            return L10n.string("File not found")
         case .inaccessible:
-            return "无法访问"
+            return L10n.string("Cannot access file")
         case .staleBookmark:
-            return "文件引用已失效"
+            return L10n.string("File reference is stale")
         case .bookmarkResolutionFailed:
-            return "无法恢复文件引用"
+            return L10n.string("Could not restore file reference")
         }
     }
 
@@ -196,7 +197,7 @@ struct ShelfItemCard: View {
         panel.canChooseFiles = true
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "使用此文件"
+        panel.prompt = L10n.string("Use This File")
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             onRelocate(item.id, url)

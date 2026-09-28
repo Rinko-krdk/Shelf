@@ -14,13 +14,13 @@ enum ShelfPersistenceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .readFailed:
-            return "Shelf 数据读取失败。"
+            return L10n.string("Could not read Shelf data.")
         case .corruptData:
-            return "Shelf 数据文件已损坏，已保留备份并以空 Shelf 启动。"
+            return L10n.string("Shelf data is damaged. A backup was kept, and Shelf started empty.")
         case let .unsupportedVersion(version):
-            return "Shelf 数据版本不受支持：\(version)。"
+            return L10n.string("Unsupported Shelf data version: %d.", version)
         case .writeFailed:
-            return "Shelf 数据保存失败。"
+            return L10n.string("Could not save Shelf data.")
         }
     }
 }

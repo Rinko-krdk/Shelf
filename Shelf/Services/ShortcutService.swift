@@ -60,9 +60,9 @@ enum ShortcutRegistrationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .modifiersRequired:
-            return "快捷键至少需要一个修饰键。"
+            return L10n.string("A shortcut must include at least one modifier key.")
         case let .registrationFailed(status):
-            return "无法注册此快捷键（系统错误 \(status)）。它可能已被其他应用占用。"
+            return L10n.string("Could not register this shortcut (system error %d). Another app may be using it.", status)
         }
     }
 }

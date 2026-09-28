@@ -19,17 +19,18 @@ final class ShelfUITests: XCTestCase {
     @MainActor
     func testMenuBarMenuAndPanelVisibility() throws {
         let app = XCUIApplication()
+        app.launchArguments = ["--shelf-reset-language"]
         app.launch()
 
         let statusItem = app.menuBars.statusItems["Shelf"]
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
 
         statusItem.click()
-        XCTAssertTrue(app.menuItems["显示 Shelf"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.menuItems["清空 Shelf"].exists)
-        XCTAssertFalse(app.menuItems["清空 Shelf"].isEnabled)
+        XCTAssertTrue(app.menuItems["Show Shelf"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.menuItems["Clear Shelf"].exists)
+        XCTAssertFalse(app.menuItems["Clear Shelf"].isEnabled)
 
-        app.menuItems["显示 Shelf"].click()
+        app.menuItems["Show Shelf"].click()
         XCTAssertTrue(app.windows["shelf-panel"].waitForExistence(timeout: 3))
         let stack = app.descendants(matching: .any)["shelf-file-stack"]
         XCTAssertTrue(stack.waitForExistence(timeout: 2))
@@ -50,27 +51,27 @@ final class ShelfUITests: XCTestCase {
         XCTAssertFalse(app.buttons["move-selected-items"].exists)
 
         statusItem.click()
-        XCTAssertTrue(app.menuItems["隐藏 Shelf"].waitForExistence(timeout: 2))
-        app.menuItems["隐藏 Shelf"].click()
+        XCTAssertTrue(app.menuItems["Hide Shelf"].waitForExistence(timeout: 2))
+        app.menuItems["Hide Shelf"].click()
         XCTAssertFalse(app.windows["shelf-panel"].waitForExistence(timeout: 1))
     }
 
     @MainActor
     func testPerFileSelectionAndOverflowExpansion() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["--shelf-ui-test-fixture"]
+        app.launchArguments = ["--shelf-ui-test-fixture", "--shelf-reset-language"]
         app.launch()
 
         let statusItem = app.menuBars.statusItems["Shelf"]
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         statusItem.click()
-        app.menuItems["显示 Shelf"].click()
+        app.menuItems["Show Shelf"].click()
 
         let window = app.windows["shelf-panel"]
         XCTAssertTrue(window.waitForExistence(timeout: 3))
         let overflow = app.buttons["shelf-overflow-toggle"]
         XCTAssertTrue(overflow.waitForExistence(timeout: 2))
-        XCTAssertEqual(overflow.label, "展开剩余 2 个文件")
+        XCTAssertEqual(overflow.label, "Show 2 more files")
         let originalHeight = window.frame.height
         overflow.click()
 
@@ -78,7 +79,7 @@ final class ShelfUITests: XCTestCase {
         let row = app.descendants(matching: .any)[rowID]
         XCTAssertTrue(row.waitForExistence(timeout: 2))
         row.click()
-        XCTAssertEqual(row.value as? String, "已选中")
+        XCTAssertEqual(row.value as? String, "Selected")
         XCTAssertGreaterThan(window.frame.height, originalHeight)
 
         app.buttons["shelf-overflow-toggle"].click()
@@ -88,19 +89,47 @@ final class ShelfUITests: XCTestCase {
     @MainActor
     func testSettingsMenuItemOpensSettings() throws {
         let app = XCUIApplication()
+        app.launchArguments = ["--shelf-reset-language"]
         app.launch()
 
         let statusItem = app.menuBars.statusItems["Shelf"]
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         statusItem.click()
 
-        let settingsItem = app.menuItems["设置…"]
+        let settingsItem = app.menuItems["Settings…"]
         XCTAssertTrue(settingsItem.waitForExistence(timeout: 2))
         settingsItem.click()
 
-        XCTAssertTrue(app.windows["设置"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.windows["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["current-shelf-shortcut"].waitForExistence(timeout: 2))
         XCTAssertEqual(app.staticTexts["current-shelf-shortcut"].label, "⌃⌥Space")
         XCTAssertTrue(app.buttons["record-shelf-shortcut-button"].exists)
+    }
+
+    @MainActor
+    func testLanguageCanBeChangedAndPersistsAfterRelaunch() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--shelf-reset-language"]
+        app.launch()
+        app.menuBars.statusItems["Shelf"].click()
+        app.menuItems["Settings…"].click()
+
+        let languagePicker = app.descendants(matching: .any)["app-language-picker"]
+        XCTAssertTrue(languagePicker.waitForExistence(timeout: 2))
+        languagePicker.click()
+        app.menuItems["简体中文"].click()
+        XCTAssertTrue(app.windows["设置"].waitForExistence(timeout: 2))
+
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        app.menuBars.statusItems["Shelf"].click()
+        XCTAssertTrue(app.menuItems["显示 Shelf"].waitForExistence(timeout: 2))
+
+        app.menuItems["设置…"].click()
+        let pickerAgain = app.descendants(matching: .any)["app-language-picker"]
+        pickerAgain.click()
+        app.menuItems["English"].click()
+        app.terminate()
     }
 }

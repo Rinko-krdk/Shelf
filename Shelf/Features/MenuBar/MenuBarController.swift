@@ -16,6 +16,7 @@ final class MenuBarController: NSObject {
     private let viewModel: ShelfViewModel
     private let settingsWindowController: SettingsWindowController
     private var itemsCancellable: AnyCancellable?
+    private var languageCancellable: AnyCancellable?
 
     init(
         panelController: ShelfPanelController,
@@ -27,8 +28,8 @@ final class MenuBarController: NSObject {
         self.settingsWindowController = settingsWindowController
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         menu = NSMenu(title: "Shelf")
-        toggleItem = NSMenuItem(title: "显示 Shelf", action: nil, keyEquivalent: "")
-        clearItem = NSMenuItem(title: "清空 Shelf", action: #selector(clearShelf(_:)), keyEquivalent: "")
+        toggleItem = NSMenuItem(title: L10n.string("Show Shelf"), action: nil, keyEquivalent: "")
+        clearItem = NSMenuItem(title: L10n.string("Clear Shelf"), action: #selector(clearShelf(_:)), keyEquivalent: "")
 
         super.init()
 
@@ -40,6 +41,9 @@ final class MenuBarController: NSObject {
         }
         itemsCancellable = viewModel.$items.sink { [weak self] _ in
             self?.updateClearItem()
+        }
+        languageCancellable = LanguageManager.shared.$language.sink { [weak self] _ in
+            self?.updateLocalizedText()
         }
     }
 
@@ -56,8 +60,8 @@ final class MenuBarController: NSObject {
             accessibilityDescription: "Shelf"
         )
         button.image?.isTemplate = true
-        button.toolTip = "Shelf"
-        button.setAccessibilityLabel("Shelf")
+        button.toolTip = L10n.string("Shelf")
+        button.setAccessibilityLabel(L10n.string("Shelf"))
         button.setAccessibilityIdentifier("shelf-status-item")
         statusItem.menu = menu
     }
@@ -73,7 +77,7 @@ final class MenuBarController: NSObject {
         clearItem.identifier = NSUserInterfaceItemIdentifier("clear-shelf")
 
         let settingsItem = NSMenuItem(
-            title: "设置…",
+            title: L10n.string("Settings…"),
             action: #selector(openSettings(_:)),
             keyEquivalent: ","
         )
@@ -81,7 +85,7 @@ final class MenuBarController: NSObject {
         settingsItem.identifier = NSUserInterfaceItemIdentifier("open-settings")
 
         let quitItem = NSMenuItem(
-            title: "退出 Shelf",
+            title: L10n.string("Quit Shelf"),
             action: #selector(quit(_:)),
             keyEquivalent: "q"
         )
@@ -95,12 +99,22 @@ final class MenuBarController: NSObject {
         menu.addItem(.separator())
         menu.addItem(quitItem)
 
+        updateLocalizedText()
+    }
+
+    private func updateLocalizedText() {
+        menu.title = "Shelf"
+        statusItem.button?.toolTip = L10n.string("Shelf")
+        statusItem.button?.setAccessibilityLabel(L10n.string("Shelf"))
+        clearItem.title = L10n.string("Clear Shelf")
+        menu.items.first(where: { $0.identifier?.rawValue == "open-settings" })?.title = L10n.string("Settings…")
+        menu.items.first(where: { $0.identifier?.rawValue == "quit-shelf" })?.title = L10n.string("Quit Shelf")
         updateToggleItem()
         updateClearItem()
     }
 
     private func updateToggleItem() {
-        toggleItem.title = panelController.isVisible ? "隐藏 Shelf" : "显示 Shelf"
+        toggleItem.title = panelController.isVisible ? L10n.string("Hide Shelf") : L10n.string("Show Shelf")
     }
 
     private func updateClearItem() {
@@ -115,11 +129,11 @@ final class MenuBarController: NSObject {
     @objc private func clearShelf(_ sender: Any?) {
         guard !viewModel.items.isEmpty else { return }
         let alert = NSAlert()
-        alert.messageText = "清空 Shelf？"
-        alert.informativeText = "只会移除 Shelf 中的引用，不会删除原文件。"
+        alert.messageText = L10n.string("Clear Shelf?")
+        alert.informativeText = L10n.string("This removes references from Shelf only. Original files will not be deleted.")
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "清空 Shelf")
-        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: L10n.string("Clear Shelf"))
+        alert.addButton(withTitle: L10n.string("Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         viewModel.removeAll()
         panelController.hideIfEmptyImmediately()
