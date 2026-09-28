@@ -2,13 +2,38 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum ShelfDragItemSelection {
+    static func resolve(
+        item: ShelfItem?,
+        itemID: ShelfItem.ID,
+        selectedItems: [ShelfItem],
+        selectionAtMouseDown: Set<ShelfItem.ID>
+    ) -> [ShelfItem] {
+        if selectionAtMouseDown.contains(itemID) { return selectedItems }
+        return item.map { [$0] } ?? []
+    }
+}
+
+enum ShelfDragEligibility {
+    static func unavailableItems(in items: [ShelfItem]) -> [ShelfItem] {
+        items.filter { $0.status != .available || $0.resolvedURL?.isFileURL != true }
+    }
+
+    static func canStartDrag(_ items: [ShelfItem]) -> Bool {
+        !items.isEmpty && unavailableItems(in: items).isEmpty
+    }
+}
+
 struct ShelfDragSourceView: NSViewRepresentable {
     let item: ShelfItem
     let itemID: ShelfItem.ID
     let selectedItems: [ShelfItem]
+    let isSelected: Bool
     let onSelect: (ShelfItem.ID, NSEvent.ModifierFlags) -> Void
+    let onDoubleClick: (ShelfItem.ID) -> Void
     let onPromiseCompleted: (ShelfItem.ID, Error?) -> Void
-    let onNeedsWriteAccess: ([ShelfItem.ID]) -> Void
+    var onDragRejected: ((String) -> Void)? = nil
+    let accessibilityIdentifier: String
 
     func makeNSView(context: Context) -> DragSourceNSView {
         let view = DragSourceNSView()
@@ -24,9 +49,15 @@ struct ShelfDragSourceView: NSViewRepresentable {
         view.item = item
         view.itemID = itemID
         view.selectedItems = selectedItems
+        view.isSelected = isSelected
         view.onSelect = onSelect
+        view.onDoubleClick = onDoubleClick
         view.onPromiseCompleted = onPromiseCompleted
-        view.onNeedsWriteAccess = onNeedsWriteAccess
+        view.onDragRejected = onDragRejected
+        view.setAccessibilityElement(true)
+        view.setAccessibilityLabel(item.displayName)
+        view.setAccessibilityIdentifier(accessibilityIdentifier)
+        view.setAccessibilityValue(isSelected ? "已选中" : "未选中")
     }
 }
 
@@ -34,9 +65,11 @@ final class DragSourceNSView: NSView, NSDraggingSource {
     var item: ShelfItem?
     var itemID: ShelfItem.ID = UUID()
     var selectedItems: [ShelfItem] = []
+    var isSelected = false
     var onSelect: ((ShelfItem.ID, NSEvent.ModifierFlags) -> Void)?
+    var onDoubleClick: ((ShelfItem.ID) -> Void)?
     var onPromiseCompleted: ((ShelfItem.ID, Error?) -> Void)?
-    var onNeedsWriteAccess: (([ShelfItem.ID]) -> Void)?
+    var onDragRejected: ((String) -> Void)?
 
     private var mouseDownEvent: NSEvent?
     private var didBeginDragging = false
@@ -47,17 +80,25 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         queue.maxConcurrentOperationCount = 2
         return queue
     }()
-    private var selectionAtMouseDown = Set<ShelfItem.ID>()
+    private var selectionAtMouseDown: Set<ShelfItem.ID> = []
+    private var selectedItemsAtMouseDown: [ShelfItem] = []
     private var modifiersAtMouseDown: NSEvent.ModifierFlags = []
 
     override var isFlipped: Bool { true }
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(convert(point, from: superview)) ? self : nil
+    }
 
     override func mouseDown(with event: NSEvent) {
         mouseDownEvent = event
         didBeginDragging = false
-        selectionAtMouseDown = Set(selectedItems.map(\.id))
+        selectedItemsAtMouseDown = selectedItems
+        selectionAtMouseDown = Set(selectedItemsAtMouseDown.map(\.id))
         modifiersAtMouseDown = event.modifierFlags
-        onSelect?(itemID, event.modifierFlags)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -68,31 +109,24 @@ final class DragSourceNSView: NSView, NSDraggingSource {
             return
         }
 
-        let dragItems: [ShelfItem]
-        if modifiersAtMouseDown.contains(.command) {
-            guard !selectionAtMouseDown.contains(itemID), let item else { return }
-            dragItems = selectedItems.contains(where: { $0.id == itemID })
-                ? selectedItems
-                : selectedItems + [item]
-        } else if modifiersAtMouseDown.contains(.shift) {
-            guard selectedItems.contains(where: { $0.id == itemID }), let item else { return }
-            dragItems = selectedItems.isEmpty ? [item] : selectedItems
-        } else if selectionAtMouseDown.contains(itemID) {
-            dragItems = selectedItems
-        } else if let item {
-            dragItems = [item]
-        } else {
-            dragItems = []
-        }
-        guard !dragItems.isEmpty,
-              dragItems.allSatisfy({ $0.status == .available && $0.resolvedURL?.isFileURL == true }) else {
+        let dragItems = ShelfDragItemSelection.resolve(
+            item: item,
+            itemID: itemID,
+            selectedItems: selectedItemsAtMouseDown,
+            selectionAtMouseDown: selectionAtMouseDown
+        )
+        guard !dragItems.isEmpty else {
+            rejectDrag("Shelf 中没有可拖出的文件。")
             return
         }
-        let itemsNeedingWriteAccess = dragItems.filter { !$0.bookmarkAllowsWriteAccess }
-        guard itemsNeedingWriteAccess.isEmpty else {
-            onNeedsWriteAccess?(itemsNeedingWriteAccess.map(\.id))
-            mouseDownEvent = nil
+        let unavailableItems = ShelfDragEligibility.unavailableItems(in: dragItems)
+        guard ShelfDragEligibility.canStartDrag(dragItems) else {
+            rejectDrag("无法拖出：\(unavailableItems.map(\.displayName).joined(separator: "、"))。请重新定位或移除这些项目。")
             return
+        }
+
+        if !selectionAtMouseDown.contains(itemID) {
+            onSelect?(itemID, [])
         }
 
         didBeginDragging = true
@@ -122,14 +156,32 @@ final class DragSourceNSView: NSView, NSDraggingSource {
             )
             return dragItem
         }
-        guard !draggingItems.isEmpty else { return }
+        guard draggingItems.count == dragItems.count else {
+            rejectDrag("无法为所有暂存文件创建拖动预览；请检查文件是否仍可访问。")
+            return
+        }
 
         let session = beginDraggingSession(with: draggingItems, event: downEvent, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = true
         self.mouseDownEvent = nil
     }
 
+    private func rejectDrag(_ message: String) {
+        onDragRejected?(message)
+        if onDragRejected == nil { NSSound.beep() }
+        mouseDownEvent = nil
+    }
+
     override func mouseUp(with event: NSEvent) {
+        guard mouseDownEvent != nil, !didBeginDragging else {
+            mouseDownEvent = nil
+            return
+        }
+        if event.clickCount > 1 {
+            onDoubleClick?(itemID)
+        } else {
+            onSelect?(itemID, modifiersAtMouseDown)
+        }
         mouseDownEvent = nil
     }
 

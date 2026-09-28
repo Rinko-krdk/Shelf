@@ -154,6 +154,174 @@ struct ShelfTests {
         #expect(restoredViewModel.items[0].id != restoredViewModel.items[1].id)
     }
 
+    @Test func sessionBoundaryClearsSavedShelfWithoutDeletingSources() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceURL = directory.appendingPathComponent("keep-after-clear.txt")
+        try Data("keep".utf8).write(to: sourceURL)
+        let persistence = ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json"))
+        let viewModel = ShelfViewModel(persistenceService: persistence)
+        viewModel.add(urls: [sourceURL])
+        await viewModel.waitForPendingOperations()
+
+        viewModel.removeAllForSessionBoundary()
+        await viewModel.waitForPendingOperations()
+
+        let nextSession = ShelfViewModel(persistenceService: persistence)
+        nextSession.load()
+        await nextSession.waitForPendingOperations()
+        #expect(viewModel.items.isEmpty)
+        #expect(nextSession.items.isEmpty)
+        #expect(FileManager.default.fileExists(atPath: sourceURL.path))
+    }
+
+    @Test func mouseShakeDetectorIgnoresJitterAndDetectsRapidHorizontalReversals() {
+        var detector = MouseShakeDetector(configuration: .init(
+            minimumHorizontalStep: 20,
+            minimumTotalDistance: 100,
+            requiredDirectionChanges: 3,
+            maximumInterval: 0.8,
+            cooldown: 1.4
+        ))
+        var activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 0)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 4, y: 0), time: 0.05)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 2, y: 0), time: 0.1)
+        #expect(!activated)
+
+        activated = detector.recordDrag(at: CGPoint(x: 40, y: 0), time: 0.2)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 0.3)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 40, y: 0), time: 0.4)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 0.5)
+        #expect(activated)
+    }
+
+    @Test func mouseShakeDetectorExpiresOldSamplesAndEnforcesCooldown() {
+        var detector = MouseShakeDetector(configuration: .init(
+            minimumHorizontalStep: 20,
+            minimumTotalDistance: 100,
+            requiredDirectionChanges: 2,
+            maximumInterval: 0.35,
+            cooldown: 1
+        ))
+        var activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 0)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 40, y: 0), time: 0.1)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 0.6)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 40, y: 0), time: 0.7)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 0.8)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 40, y: 0), time: 0.9)
+        #expect(activated)
+
+        activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 1.0)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 40, y: 0), time: 1.1)
+        #expect(!activated)
+        activated = detector.recordDrag(at: CGPoint(x: 0, y: 0), time: 1.2)
+        #expect(!activated)
+    }
+
+    @Test func mouseShakeDetectorAccumulatesDenseSmallDragEvents() {
+        var detector = MouseShakeDetector(configuration: .init(
+            minimumHorizontalStep: 20,
+            minimumTotalDistance: 100,
+            requiredDirectionChanges: 3,
+            maximumInterval: 0.8,
+            cooldown: 1
+        ))
+        var activated = false
+        let points: [CGFloat] = [0, 10, 20, 30, 20, 10, 0, 10, 20, 30, 40, 30, 20, 10, 0]
+        for (index, x) in points.enumerated() {
+            activated = detector.recordDrag(at: CGPoint(x: x, y: 0), time: Double(index) * 0.02)
+            if activated { break }
+        }
+        #expect(activated)
+    }
+
+    @Test func fileStackShowsAtMostThreeIconsAndCountsOnlyTheRemainder() {
+        for itemCount in 0...3 {
+            let presentation = FileStackPresentation(itemCount: itemCount)
+            #expect(presentation.visibleIconCount == itemCount)
+            #expect(presentation.hiddenItemCount == 0)
+            #expect(presentation.badgeText == nil)
+        }
+
+        let fiveItems = FileStackPresentation(itemCount: 5)
+        #expect(fiveItems.visibleIconCount == 3)
+        #expect(fiveItems.hiddenItemCount == 2)
+        #expect(fiveItems.badgeText == "+2")
+    }
+
+    @Test func draggingSelectedItemIncludesSelectionInShelfOrder() {
+        let items = (0..<5).map { ShelfItem(displayName: "file-\($0).txt") }
+        let selected = [items[1], items[3]]
+
+        let dragItems = ShelfDragItemSelection.resolve(
+            item: items[3],
+            itemID: items[3].id,
+            selectedItems: selected,
+            selectionAtMouseDown: Set(selected.map(\.id))
+        )
+
+        #expect(dragItems.map(\.id) == selected.map(\.id))
+    }
+
+    @Test func draggingUnselectedItemStartsSingleItemDrag() {
+        let items = (0..<4).map { ShelfItem(displayName: "file-\($0).txt") }
+        let selected = [items[0], items[2]]
+
+        let dragItems = ShelfDragItemSelection.resolve(
+            item: items[3],
+            itemID: items[3].id,
+            selectedItems: selected,
+            selectionAtMouseDown: Set(selected.map(\.id))
+        )
+
+        #expect(dragItems.map(\.id) == [items[3].id])
+    }
+
+    @Test func emptyOrUnavailableSelectionCannotDrag() {
+        #expect(!ShelfDragEligibility.canStartDrag([]))
+        let unavailable = ShelfItem(displayName: "missing.txt", status: .missing)
+        #expect(!ShelfDragEligibility.canStartDrag([unavailable]))
+    }
+
+    @Test func readableItemCanStartDragWithoutSourceDeletionAuthorization() {
+        let item = ShelfItem(
+            displayName: "read-only.txt",
+            status: .available,
+            resolvedURL: URL(fileURLWithPath: "/tmp/read-only.txt")
+        )
+
+        #expect(!item.bookmarkAllowsWriteAccess)
+        #expect(ShelfDragEligibility.canStartDrag([item]))
+    }
+
+    @Test func unavailableItemsCannotStartDrag() {
+        let missingURL = ShelfItem(
+            displayName: "missing.txt",
+            status: .available,
+            resolvedURL: nil
+        )
+        let missingItem = ShelfItem(
+            displayName: "gone.txt",
+            status: .missing,
+            resolvedURL: URL(fileURLWithPath: "/tmp/gone.txt")
+        )
+
+        #expect(!ShelfDragEligibility.canStartDrag([missingURL]))
+        #expect(!ShelfDragEligibility.canStartDrag([missingItem]))
+        #expect(ShelfDragEligibility.unavailableItems(in: [missingURL, missingItem]).map(\.displayName) == ["missing.txt", "gone.txt"])
+    }
+
     @Test func directoryIsAddedAsOneItem() throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -285,6 +453,16 @@ struct ShelfTests {
         #expect(selection.selectedIDs == [ids[1], ids[2], ids[3]])
     }
 
+    @Test func ordinarySelectionReplacesPreviousSelection() {
+        let ids = (0..<3).map { _ in UUID() }
+        var selection = ShelfSelectionState()
+
+        selection.select(ids[0], command: false, shift: false, orderedIDs: ids)
+        selection.select(ids[2], command: false, shift: false, orderedIDs: ids)
+
+        #expect(selection.selectedIDs == [ids[2]])
+    }
+
     @Test func selectionCanClearAndReplaceInShelfOrder() {
         let ids = (0..<4).map { _ in UUID() }
         var selection = ShelfSelectionState()
@@ -379,6 +557,30 @@ struct ShelfTests {
 
         #expect(viewModel.items.isEmpty)
         #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
+    }
+
+    @Test func successfulCollectionMoveRemovesEveryTransferredItem() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceURLs = (0..<3).map { directory.appendingPathComponent("move-\($0).txt") }
+        for (index, url) in sourceURLs.enumerated() {
+            try Data("move-\(index)".utf8).write(to: url)
+        }
+        let viewModel = ShelfViewModel(
+            persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json")),
+            sourceRemover: { item in
+                guard let url = item.resolvedURL else { throw CocoaError(.fileNoSuchFile) }
+                try FileManager.default.removeItem(at: url)
+            }
+        )
+        viewModel.add(urls: sourceURLs)
+        let ids = viewModel.items.map(\.id)
+
+        viewModel.completeTransfer(ids: ids, result: .moved)
+        await viewModel.waitForPendingOperations()
+
+        #expect(viewModel.items.isEmpty)
+        #expect(sourceURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
     }
 
     @Test func cancelledDropDoesNotChangeSourceOrShelf() async throws {

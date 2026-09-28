@@ -72,6 +72,12 @@ final class ShelfViewModel: ObservableObject {
         schedulePersistence()
     }
 
+    func add(items newItems: [ShelfItem]) {
+        guard !newItems.isEmpty else { return }
+        items.append(contentsOf: newItems)
+        schedulePersistence()
+    }
+
     func remove(id: ShelfItem.ID) {
         guard items.contains(where: { $0.id == id }) else { return }
         items.removeAll { $0.id == id }
@@ -81,6 +87,14 @@ final class ShelfViewModel: ObservableObject {
     func removeAll() {
         guard !items.isEmpty else { return }
         items.removeAll()
+        schedulePersistence()
+    }
+
+    /// Starts a fresh temporary Shelf session and ensures stale saved references are cleared.
+    func removeAllForSessionBoundary() {
+        pendingLoadTask?.cancel()
+        items.removeAll()
+        lastError = nil
         schedulePersistence()
     }
 

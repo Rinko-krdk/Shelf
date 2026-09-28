@@ -14,41 +14,41 @@ struct ShelfItemCard: View {
     let selectedItems: [ShelfItem]
     let onSelect: (ShelfItem.ID, NSEvent.ModifierFlags) -> Void
     let onPromiseCompleted: (ShelfItem.ID, Error?) -> Void
-    let onNeedsWriteAccess: ([ShelfItem.ID]) -> Void
+    let onDragRejected: (String) -> Void
     let onRemove: (ShelfItem.ID) -> Void
     let onRelocate: (ShelfItem.ID, URL) -> Void
 
     @State private var thumbnail: NSImage?
     @State private var isConfirmingRemoval = false
+    @State private var isHovered = false
 
-    private let previewSize = CGSize(width: 112, height: 82)
+    private let previewSize = CGSize(width: 132, height: 96)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
 
                 if let thumbnail {
                     Image(nsImage: thumbnail)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .padding(5)
+                        .padding(4)
                 } else {
-                    Image(nsImage: fallbackIcon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .padding(18)
-                        .foregroundStyle(item.status == .available ? Color(nsColor: .secondaryLabelColor) : .orange)
+                    fallbackImage
                 }
 
                 ShelfDragSourceView(
                     item: item,
                     itemID: item.id,
                     selectedItems: selectedItems,
+                    isSelected: isSelected,
                     onSelect: onSelect,
+                    onDoubleClick: { _ in },
                     onPromiseCompleted: onPromiseCompleted,
-                    onNeedsWriteAccess: onNeedsWriteAccess
+                    onDragRejected: onDragRejected,
+                    accessibilityIdentifier: "shelf-item-drag-source-\(item.id.uuidString)"
                 )
 
                 if item.status != .available {
@@ -64,24 +64,28 @@ struct ShelfItemCard: View {
                 Button {
                     isConfirmingRemoval = true
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, Color.black.opacity(0.62))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 22, height: 22)
+                        .background(.regularMaterial, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .help("从 Shelf 移除")
                 .accessibilityLabel("移除 \(item.displayName)")
                 .accessibilityIdentifier("remove-shelf-item-\(item.id.uuidString)")
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 .padding(5)
+                .opacity(isHovered ? 1 : 0.55)
             }
             .frame(height: previewSize.height)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
 
             Text(item.displayName)
-                .font(.caption)
+                .font(.system(size: 12, weight: .medium))
                 .lineLimit(2)
                 .truncationMode(.middle)
+                .foregroundStyle(.primary)
                 .help(item.displayName)
                 .accessibilityLabel(item.displayName)
                 .onTapGesture {
@@ -89,28 +93,30 @@ struct ShelfItemCard: View {
                 }
 
             if item.status != .available {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(statusDescription)
+                Button(action: chooseReplacement) {
+                    Label("重新选择…", systemImage: "arrow.triangle.2.circlepath")
                         .font(.caption2)
-                        .foregroundStyle(.orange)
-                        .lineLimit(1)
-                    Button("重新选择…", action: chooseReplacement)
-                        .font(.caption2)
-                        .buttonStyle(.link)
-                        .accessibilityIdentifier("reselect-shelf-item-\(item.id.uuidString)")
                 }
+                .buttonStyle(.link)
+                .help(statusDescription)
+                .accessibilityIdentifier("reselect-shelf-item-\(item.id.uuidString)")
             }
         }
-        .padding(8)
+        .padding(4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(
-                    isSelected ? Color.accentColor : Color(nsColor: .separatorColor).opacity(0.35),
-                    lineWidth: isSelected ? 2 : 1
+                    isSelected ? Color.accentColor.opacity(0.85) : Color.clear,
+                    lineWidth: 1.5
                 )
+                .background {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+                }
         }
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovered)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shelf-item-\(item.id.uuidString)")
         .contentShape(RoundedRectangle(cornerRadius: 10))
@@ -144,6 +150,17 @@ struct ShelfItemCard: View {
         }
         let type = item.contentTypeIdentifier.flatMap(UTType.init) ?? .data
         return NSWorkspace.shared.icon(for: type)
+    }
+
+    private var fallbackImage: some View {
+        let icon = fallbackIcon
+        let opacity = item.status == .available ? 0.82 : 0.55
+        return Image(nsImage: icon)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 42, height: 42)
+            .padding(12)
+            .opacity(opacity)
     }
 
     private var statusSymbol: String {

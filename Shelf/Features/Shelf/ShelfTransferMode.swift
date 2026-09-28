@@ -307,15 +307,3 @@ struct ShelfSelectionCaptureView: NSViewRepresentable {
         coordinator.attach(view)
     }
 }
-
-struct ShelfWindowDragHandle: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        WindowDragHandleNSView()
-    }
-
-    func updateNSView(_ view: NSView, context: Context) {}
-}
-
-private final class WindowDragHandleNSView: NSView {
-    override var mouseDownCanMoveWindow: Bool { true }
-}

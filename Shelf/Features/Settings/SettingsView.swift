@@ -14,10 +14,16 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("快捷键") {
-                LabeledContent("呼出 / 隐藏 Shelf") {
+                LabeledContent {
                     Text(shortcutService.shortcut.displayName)
                         .monospaced()
+                        .font(.system(.body, design: .rounded).weight(.medium))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
                         .accessibilityIdentifier("current-shelf-shortcut")
+                } label: {
+                    Label("呼出 / 隐藏 Shelf", systemImage: "rectangle.inset.filled.and.person.filled")
                 }
 
                 HStack {
@@ -53,8 +59,13 @@ struct SettingsView: View {
             }
 
             Section {
-                Text("按下包含修饰键的组合。若系统无法注册，当前快捷键会继续生效。")
+                Label {
+                    Text("录制时按下包含修饰键的组合。若系统无法注册，当前快捷键会继续生效。")
+                } icon: {
+                    Image(systemName: "info.circle")
+                }
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .formStyle(.grouped)

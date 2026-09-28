@@ -3,136 +3,139 @@
 //  Shelf
 //
 
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct ShelfCardFramePreferenceKey: PreferenceKey {
-    static let defaultValue: [ShelfItem.ID: CGRect] = [:]
-
-    static func reduce(value: inout [ShelfItem.ID: CGRect], nextValue: () -> [ShelfItem.ID: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
 struct ShelfView: View {
     @ObservedObject var viewModel: ShelfViewModel
-    @StateObject private var thumbnailService = ThumbnailService()
-    @StateObject private var selectionGesture = ShelfSelectionGestureCoordinator()
+    @ObservedObject var panelController: ShelfPanelController
     @State private var isDropTargeted = false
     @State private var isConfirmingClear = false
+    @State private var isHovering = false
+    @State private var isExpanded = false
     @State private var selection = ShelfSelectionState()
 
-    private let columns = [GridItem(.adaptive(minimum: 112, maximum: 150), spacing: 12)]
+    init(viewModel: ShelfViewModel, panelController: ShelfPanelController) {
+        self.viewModel = viewModel
+        self.panelController = panelController
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                ShelfWindowDragHandle()
-                    .frame(width: 14, height: 18)
-                    .overlay {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                            .allowsHitTesting(false)
-                    }
-                    .accessibilityLabel("移動 Shelf 窗口")
-                    .accessibilityIdentifier("shelf-window-drag-handle")
-                Text("Shelf · \(viewModel.items.count)")
-                    .font(.headline)
-                if !selection.selectedIDs.isEmpty {
-                    Text("已选 \(selection.selectedIDs.count) 项 · 拖出即剪切")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("清空") { isConfirmingClear = true }
-                    .buttonStyle(.borderless)
-                    .disabled(viewModel.items.isEmpty)
-                    .accessibilityIdentifier("clear-shelf-button")
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                FileStackView(
+                    items: viewModel.items,
+                    selectedIDs: Set(selection.selectedIDs),
+                    onSelect: selectItem,
+                    onDoubleClick: openItem,
+                    onToggleOverflow: toggleOverflow,
+                    onPromiseCompleted: completePromise,
+                    onDragRejected: { viewModel.reportTransferError($0) }
+                )
+                .frame(width: 102, height: 72)
 
-            if viewModel.items.isEmpty {
-                ContentUnavailableView {
-                    Label("Shelf", systemImage: "tray")
-                } description: {
-                    Text("将文件拖入这里暂存。")
-                }
-                .accessibilityIdentifier("shelf-empty-state")
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                        ForEach(viewModel.items) { item in
-                            ShelfItemCard(
-                                item: item,
-                                thumbnailService: thumbnailService,
-                                isSelected: selection.selectedIDs.contains(item.id),
-                                selectedItems: selectedItems,
-                                onSelect: selectItem,
-                                onPromiseCompleted: completePromise,
-                                onNeedsWriteAccess: authorizeWriteAccess,
-                                onRemove: viewModel.remove(id:),
-                                onRelocate: viewModel.reselect(id:with:)
-                            )
-                            .background {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(
-                                        key: ShelfCardFramePreferenceKey.self,
-                                        value: [item.id: geometry.frame(in: .named("shelf-selection-grid"))]
-                                    )
-                                }
-                            }
+                if isHovering {
+                    VStack(spacing: 7) {
+                        Button { isConfirmingClear = true } label: {
+                            Image(systemName: "trash")
                         }
+                        .help("清空 Shelf")
+                        .accessibilityLabel("清空 Shelf")
+                        .accessibilityIdentifier("shelf-clear-button")
+                        .disabled(viewModel.items.isEmpty)
+
+                        Button { panelController.hide() } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .help("隐藏并清空 Shelf")
+                        .accessibilityLabel("隐藏并清空 Shelf")
+                        .accessibilityIdentifier("shelf-hide-button")
                     }
-                    .padding(12)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 22)
+                    .transition(.opacity)
+                } else {
+                    Color.clear.frame(width: 22)
                 }
-                .coordinateSpace(name: "shelf-selection-grid")
-                .overlay(alignment: .topLeading) {
-                    ShelfSelectionCaptureView(
-                        coordinator: selectionGesture,
-                        onBlankClick: clearSelection,
-                        onMarqueeSelection: replaceSelection,
-                        onSweepSelection: addSelection,
-                        onCardClick: selectItem
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .onPreferenceChange(ShelfCardFramePreferenceKey.self) { frames in
-                    selectionGesture.updateLayout(frames: frames, orderedIDs: viewModel.items.map(\.id))
-                }
-                .accessibilityIdentifier("shelf-item-grid")
+            }
+            .frame(width: 148, height: 92)
+
+            if isExpanded {
+                FileStackListView(
+                    items: viewModel.items,
+                    selectedIDs: Set(selection.selectedIDs),
+                    onSelect: selectItem,
+                    onDoubleClick: openItem,
+                    onPromiseCompleted: completePromise,
+                    onDragRejected: { viewModel.reportTransferError($0) }
+                )
+                .frame(width: 140, height: expandedListHeight)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isDropTargeted ? Color.accentColor.opacity(0.12) : Color.clear)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(
-                            isDropTargeted ? Color.accentColor : Color.clear,
-                            style: StrokeStyle(lineWidth: 2, dash: [6, 4])
-                        )
-                }
-                .padding(3)
+        .frame(width: 148, height: contentHeight, alignment: .top)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(isDropTargeted ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.22), lineWidth: 1)
                 .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
+        .accessibilityIdentifier("shelf-content-panel")
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.12)) { isHovering = hovering }
+            if hovering { panelController.beginInteraction() }
+            else { panelController.endInteraction() }
         }
         .onDrop(
             of: [UTType.fileURL, UTType.url],
             isTargeted: $isDropTargeted,
             perform: handleDrop
         )
-        .onChange(of: viewModel.items.map(\.id)) { _, itemIDs in
-            thumbnailService.retainThumbnails(for: Set(itemIDs))
-            selection.retain(Set(itemIDs))
+        .onChange(of: isDropTargeted) { _, targeted in
+            if targeted { panelController.beginInteraction() }
+            else { panelController.endInteraction() }
+        }
+        .onChange(of: isExpanded) { _, expanded in
+            panelController.setExpanded(
+                expanded,
+                listHeight: expanded ? expandedListHeight : 0
+            )
+        }
+        .onChange(of: viewModel.items.map(\.id)) { _, ids in
+            selection.retain(Set(ids))
+            if ids.count <= FileStackPresentation.maximumVisibleIcons, isExpanded {
+                isExpanded = false
+            } else if isExpanded {
+                panelController.setExpanded(true, listHeight: expandedListHeight)
+            }
+        }
+        .onChange(of: panelController.isVisible) { _, visible in
+            if !visible {
+                selection.clear()
+                isExpanded = false
+            }
+        }
+        .onChange(of: viewModel.items.isEmpty) { wasEmpty, isEmpty in
+            if !wasEmpty && isEmpty { panelController.hideIfEmptyImmediately() }
+        }
+        .contextMenu {
+            if !viewModel.items.isEmpty {
+                Button("清空 Shelf", role: .destructive) { isConfirmingClear = true }
+            }
         }
         .confirmationDialog(
             "清空 Shelf？",
             isPresented: $isConfirmingClear,
             titleVisibility: .visible
         ) {
-            Button("清空 Shelf", role: .destructive) { viewModel.removeAll() }
+            Button("清空 Shelf", role: .destructive) {
+                viewModel.removeAll()
+                panelController.hideIfEmptyImmediately()
+            }
             Button("取消", role: .cancel) {}
         } message: {
             Text("只会移除 Shelf 中的引用，不会删除原文件。")
@@ -158,9 +161,23 @@ struct ShelfView: View {
         return true
     }
 
-    private var selectedItems: [ShelfItem] {
-        let selectedIDs = Set(selection.selectedIDs)
-        return viewModel.items.filter { selectedIDs.contains($0.id) }
+    private func completePromise(_ id: ShelfItem.ID, _ error: Error?) {
+        guard let error else {
+            viewModel.completeTransfer(ids: [id], result: .moved)
+            panelController.hideIfEmptyImmediately()
+            return
+        }
+        viewModel.reportTransferError("\(viewModel.items.first(where: { $0.id == id })?.displayName ?? "所选项目")未能放置：\(error.localizedDescription)")
+    }
+
+    private var orderedIDs: [ShelfItem.ID] { viewModel.items.map(\.id) }
+
+    private var expandedListHeight: CGFloat {
+        FileStackListView.height(for: viewModel.items.count)
+    }
+
+    private var contentHeight: CGFloat {
+        92 + (isExpanded ? 6 + expandedListHeight : 0)
     }
 
     private func selectItem(_ id: ShelfItem.ID, _ modifiers: NSEvent.ModifierFlags) {
@@ -168,70 +185,32 @@ struct ShelfView: View {
             id,
             command: modifiers.contains(.command),
             shift: modifiers.contains(.shift),
-            orderedIDs: viewModel.items.map(\.id)
+            orderedIDs: orderedIDs
         )
     }
 
-    private func clearSelection() {
-        selection.clear()
+    private func toggleOverflow() {
+        guard viewModel.items.count > FileStackPresentation.maximumVisibleIcons else { return }
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isExpanded.toggle()
+        }
     }
 
-    private func replaceSelection(_ ids: Set<ShelfItem.ID>) {
-        selection.replace(with: ids, orderedIDs: viewModel.items.map(\.id))
-    }
-
-    private func addSelection(_ ids: Set<ShelfItem.ID>) {
-        selection.add(ids, orderedIDs: viewModel.items.map(\.id))
-    }
-
-    private func completePromise(_ id: ShelfItem.ID, _ error: Error?) {
-        guard let error else {
-            viewModel.completeTransfer(ids: [id], result: .moved)
-            selection.retain(Set(viewModel.items.map(\.id)))
+    private func openItem(_ id: ShelfItem.ID) {
+        guard let item = viewModel.items.first(where: { $0.id == id }),
+              item.status == .available,
+              let url = item.resolvedURL,
+              url.isFileURL else {
+            viewModel.reportTransferError("该文件当前不可用，无法打开。")
             return
         }
-        viewModel.reportTransferError("\(viewModel.items.first(where: { $0.id == id })?.displayName ?? "所选项目")未能放置：\(error.localizedDescription)")
-    }
 
-    private func authorizeWriteAccess(for ids: [ShelfItem.ID]) {
-        let idSet = Set(ids)
-        let itemsNeedingWriteAccess = viewModel.items.filter {
-            idSet.contains($0.id) && !$0.bookmarkAllowsWriteAccess
-        }
-        guard !itemsNeedingWriteAccess.isEmpty else { return }
-
-        let panel = NSOpenPanel()
-        panel.title = "授权剪切所选文件"
-        panel.message = "重新选择 Shelf 中的同一批文件，以授权剪切时删除源文件。"
-        panel.prompt = "授权剪切"
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.begin { response in
-            guard response == .OK else { return }
-            let selectedPaths = Set(panel.urls.map { $0.standardizedFileURL.path })
-            let authorizedURLByPath = Dictionary(
-                uniqueKeysWithValues: panel.urls.map { ($0.standardizedFileURL.path, $0) }
-            )
-            let requiredPaths = itemsNeedingWriteAccess.compactMap { $0.resolvedURL?.standardizedFileURL.path }
-            guard requiredPaths.count == itemsNeedingWriteAccess.count,
-                  requiredPaths.allSatisfy(selectedPaths.contains) else {
-                viewModel.reportTransferError("请选择与 Shelf 中选中项完全相同的文件；没有执行剪切。")
-                return
-            }
-
-            for item in itemsNeedingWriteAccess {
-                guard let path = item.resolvedURL?.standardizedFileURL.path,
-                      let url = authorizedURLByPath[path] else { continue }
-                viewModel.reselect(id: item.id, with: url)
-            }
-            let reauthorizedIDs = Set(itemsNeedingWriteAccess.map(\.id))
-            let reauthorizedItems = viewModel.items.filter { reauthorizedIDs.contains($0.id) }
-            guard reauthorizedItems.count == reauthorizedIDs.count,
-                  reauthorizedItems.allSatisfy(\.bookmarkAllowsWriteAccess) else {
-                viewModel.reportTransferError("无法取得所选文件的写入授权；没有执行剪切。")
-                return
-            }
+        let startedAccessing = url.startAccessingSecurityScopedResource()
+        let opened = NSWorkspace.shared.open(url)
+        if startedAccessing { url.stopAccessingSecurityScopedResource() }
+        if !opened {
+            viewModel.reportTransferError("无法打开文件：\(item.displayName)。请检查文件访问权限。")
         }
     }
+
 }

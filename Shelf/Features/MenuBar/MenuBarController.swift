@@ -122,6 +122,7 @@ final class MenuBarController: NSObject {
         alert.addButton(withTitle: "取消")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         viewModel.removeAll()
+        panelController.hideIfEmptyImmediately()
     }
 
     @objc private func openSettings(_ sender: Any?) {
