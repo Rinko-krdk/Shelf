@@ -70,6 +70,30 @@ struct ShelfTests {
         #expect(item.resolvedURL == sourceURL)
     }
 
+    @Test func filenameTooltipPrefersAboveHoveredRowAndFallsBelowAtTop() {
+        let size = CGSize(width: 140, height: 52)
+        let container = CGSize(width: 156, height: 180)
+        let middleRow = CGRect(x: 0, y: 70, width: 156, height: 34)
+
+        let above = ShelfTooltipPlacement.frame(
+            rowFrame: middleRow,
+            tooltipSize: size,
+            containerSize: container
+        )
+        #expect(above.maxY + ShelfTooltipPlacement.gap <= middleRow.minY)
+        #expect(above.minX >= ShelfTooltipPlacement.inset)
+        #expect(above.maxX <= container.width - ShelfTooltipPlacement.inset)
+
+        let topRow = CGRect(x: 0, y: 4, width: 156, height: 34)
+        let below = ShelfTooltipPlacement.frame(
+            rowFrame: topRow,
+            tooltipSize: size,
+            containerSize: container
+        )
+        #expect(below.minY >= topRow.maxY + ShelfTooltipPlacement.gap)
+        #expect(below.maxY <= container.height - ShelfTooltipPlacement.inset)
+    }
+
     @Test func fileServiceDeletesOnlyWithWriteAuthorizationFlag() throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -535,6 +559,26 @@ struct ShelfTests {
         let passedIDs = coordinator.updateSweep(to: NSPoint(x: 110, y: 20))
 
         #expect(passedIDs == Set(ids))
+    }
+
+    @Test @MainActor func shiftSweepAddsPassedRowsAndKeepsExistingSelection() {
+        let ids = (0..<4).map { _ in UUID() }
+        let frames: [UUID: CGRect] = [
+            ids[0]: CGRect(x: 0, y: 0, width: 100, height: 30),
+            ids[1]: CGRect(x: 0, y: 34, width: 100, height: 30),
+            ids[2]: CGRect(x: 0, y: 68, width: 100, height: 30),
+            ids[3]: CGRect(x: 0, y: 102, width: 100, height: 30)
+        ]
+        var selection = ShelfSelectionState()
+        selection.add([ids[0], ids[3]], orderedIDs: ids)
+
+        let coordinator = ShelfSelectionGestureCoordinator()
+        coordinator.updateLayout(frames: frames, orderedIDs: ids, selectedIDs: [ids[0], ids[3]])
+        let initial = coordinator.beginSweep(at: NSPoint(x: 50, y: 15), including: ids[0])
+        selection.add(initial, orderedIDs: ids)
+        selection.add(coordinator.updateSweep(to: NSPoint(x: 50, y: 83)), orderedIDs: ids)
+
+        #expect(selection.selectedIDs == ids)
     }
 
     @Test func successfulMoveDeletesSourceAndRemovesShelfItem() async throws {

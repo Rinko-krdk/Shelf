@@ -45,6 +45,7 @@ final class ShelfUITests: XCTestCase {
         app.descendants(matching: .any)["shelf-content-panel"]
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .hover()
+        XCTAssertFalse(app.buttons["shelf-select-all-button"].isEnabled)
         XCTAssertTrue(app.buttons["shelf-clear-button"].exists)
         XCTAssertTrue(app.buttons["shelf-hide-button"].exists)
         XCTAssertFalse(app.buttons["copy-selected-items"].exists)
@@ -72,15 +73,58 @@ final class ShelfUITests: XCTestCase {
         let overflow = app.buttons["shelf-overflow-toggle"]
         XCTAssertTrue(overflow.waitForExistence(timeout: 2))
         XCTAssertEqual(overflow.label, "Show 2 more files")
+
+        let content = app.descendants(matching: .any)["shelf-content-panel"]
+        content.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        let clearButton = app.buttons["shelf-clear-button"]
+        let hideButton = app.buttons["shelf-hide-button"]
+        let selectAllButton = app.buttons["shelf-select-all-button"]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: 2))
+        XCTAssertTrue(hideButton.exists)
+        XCTAssertTrue(selectAllButton.exists)
+        XCTAssertTrue(selectAllButton.isEnabled)
+        XCTAssertFalse(clearButton.frame.intersects(overflow.frame))
+        XCTAssertFalse(hideButton.frame.intersects(overflow.frame))
+        XCTAssertFalse(selectAllButton.frame.intersects(overflow.frame))
+
+        selectAllButton.click()
+        XCTAssertEqual(selectAllButton.label, "Deselect All")
+        selectAllButton.click()
+        XCTAssertEqual(selectAllButton.label, "Select All")
+        app.descendants(matching: .any)["shelf-stack-item-00000000-0000-0000-0000-000000000001"].click()
+        XCTAssertEqual(selectAllButton.label, "Select All")
+        selectAllButton.click()
+        XCTAssertEqual(selectAllButton.label, "Deselect All")
+
         let originalHeight = window.frame.height
         overflow.click()
 
         let rowID = "shelf-expanded-file-row-00000000-0000-0000-0000-000000000004"
         let row = app.descendants(matching: .any)[rowID]
         XCTAssertTrue(row.waitForExistence(timeout: 2))
+        let firstRow = app.descendants(matching: .any)["shelf-expanded-file-row-00000000-0000-0000-0000-000000000001"]
+        firstRow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        let filenameTooltip = app.staticTexts["shelf-filename-tooltip"]
+        XCTAssertTrue(filenameTooltip.waitForExistence(timeout: 2))
+        XCTAssertEqual(filenameTooltip.label, "fixture-1-this-is-a-very-long-file-name-that-does-not-fit-in-a-list-row.txt")
+        XCTAssertGreaterThanOrEqual(filenameTooltip.frame.minY, firstRow.frame.maxY)
+
+        let middleRow = app.descendants(matching: .any)["shelf-expanded-file-row-00000000-0000-0000-0000-000000000003"]
+        middleRow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        let middleTooltipExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "fixture-3.txt"),
+            object: filenameTooltip
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [middleTooltipExpectation], timeout: 2), .completed)
+        XCTAssertLessThanOrEqual(filenameTooltip.frame.maxY, middleRow.frame.minY)
         row.click()
         XCTAssertEqual(row.value as? String, "Selected")
         XCTAssertGreaterThan(window.frame.height, originalHeight)
+
+        for index in 1...5 {
+            let identifier = String(format: "shelf-expanded-file-row-00000000-0000-0000-0000-%012d", index)
+            XCTAssertEqual(app.descendants(matching: .any)[identifier].value as? String, "Selected")
+        }
 
         app.buttons["shelf-overflow-toggle"].click()
         XCTAssertFalse(row.waitForExistence(timeout: 1))

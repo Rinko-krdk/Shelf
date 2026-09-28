@@ -13,7 +13,7 @@ final class ShelfPanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     private let panel: ShelfPanel
     private let viewModel: ShelfViewModel
-    private let contentSize = NSSize(width: 148, height: 92)
+    private let contentSize = NSSize(width: ShelfLayout.contentWidth, height: ShelfLayout.contentHeight)
     private let frameInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
     private var overflowListHeight: CGFloat = 0
     private let expandedListSpacing: CGFloat = 13
@@ -30,7 +30,6 @@ final class ShelfPanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var languageCancellable: AnyCancellable?
 
     var onVisibilityChanged: ((Bool) -> Void)?
-
     init(viewModel: ShelfViewModel) {
         self.viewModel = viewModel
         panel = ShelfPanel(

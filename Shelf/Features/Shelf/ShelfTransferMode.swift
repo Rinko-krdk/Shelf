@@ -87,14 +87,20 @@ struct ShelfSelectionState: Equatable {
 final class ShelfSelectionGestureCoordinator: ObservableObject {
     private(set) var cardFrames: [ShelfItem.ID: CGRect] = [:]
     private(set) var orderedIDs: [ShelfItem.ID] = []
+    private(set) var selectedIDs: Set<ShelfItem.ID> = []
     private(set) var marqueeRect: CGRect?
 
     weak var captureView: ShelfSelectionCaptureNSView?
     private var lastSweepPoint: NSPoint?
 
-    func updateLayout(frames: [ShelfItem.ID: CGRect], orderedIDs: [ShelfItem.ID]) {
+    func updateLayout(
+        frames: [ShelfItem.ID: CGRect],
+        orderedIDs: [ShelfItem.ID],
+        selectedIDs: Set<ShelfItem.ID> = []
+    ) {
         cardFrames = frames
         self.orderedIDs = orderedIDs
+        self.selectedIDs = selectedIDs
     }
 
     func ids(intersecting rect: CGRect) -> Set<ShelfItem.ID> {
@@ -181,6 +187,7 @@ final class ShelfSelectionCaptureNSView: NSView {
     private var mouseDownModifiers: NSEvent.ModifierFlags = []
     private var mouseDownItemID: ShelfItem.ID?
     private var didDrag = false
+    private var didSweep = false
 
     override var isFlipped: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -191,9 +198,9 @@ final class ShelfSelectionCaptureNSView: NSView {
         let itemID = gestureCoordinator?.orderedIDs.first { id in
             gestureCoordinator?.cardFrames[id]?.contains(localPoint) == true
         }
-        if itemID != nil && !NSEvent.modifierFlags.contains(.shift) {
-            return nil
-        }
+        guard NSEvent.modifierFlags.contains(.shift),
+              let itemID,
+              gestureCoordinator?.selectedIDs.contains(itemID) == true else { return nil }
         return self
     }
 
@@ -205,6 +212,7 @@ final class ShelfSelectionCaptureNSView: NSView {
             gestureCoordinator?.cardFrames[id]?.contains(point) == true
         }
         didDrag = false
+        didSweep = false
         if mouseDownItemID == nil {
             gestureCoordinator?.beginBlankGesture()
             if !event.modifierFlags.contains(.shift) { onBlankClick?() }
@@ -214,13 +222,13 @@ final class ShelfSelectionCaptureNSView: NSView {
     override func mouseDragged(with event: NSEvent) {
         guard let start = mouseDownPoint else { return }
         let point = convert(event.locationInWindow, from: nil)
-        let isBeyondThreshold = hypot(point.x - start.x, point.y - start.y) >= 4
-        let didJustBeginDragging = isBeyondThreshold && !didDrag
-        didDrag = didDrag || isBeyondThreshold
-        guard didDrag else { return }
+        guard hypot(point.x - start.x, point.y - start.y) >= 4 else { return }
+        didDrag = true
 
         if mouseDownItemID != nil {
-            if didJustBeginDragging {
+            guard mouseDownModifiers.contains(.shift), point.y > start.y else { return }
+            if !didSweep {
+                didSweep = true
                 let initialIDs = gestureCoordinator?.beginSweep(at: start, including: mouseDownItemID) ?? []
                 if !initialIDs.isEmpty { onSweepSelection?(initialIDs) }
             }
@@ -244,11 +252,11 @@ final class ShelfSelectionCaptureNSView: NSView {
         guard let start = mouseDownPoint else { return }
         let point = convert(event.locationInWindow, from: nil)
         if let mouseDownItemID {
-            if didDrag {
+            if didSweep {
                 let ids = gestureCoordinator?.updateSweep(to: point) ?? []
                 if !ids.isEmpty { onSweepSelection?(ids) }
                 gestureCoordinator?.endSweep()
-            } else {
+            } else if !didDrag {
                 onCardClick?(mouseDownItemID, mouseDownModifiers)
             }
         } else {
@@ -266,6 +274,7 @@ final class ShelfSelectionCaptureNSView: NSView {
         mouseDownPoint = nil
         mouseDownItemID = nil
         didDrag = false
+        didSweep = false
     }
 
     override func draw(_ dirtyRect: NSRect) {

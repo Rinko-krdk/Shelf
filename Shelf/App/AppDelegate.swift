@@ -29,7 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 try FileManager.default.createDirectory(at: fixtureDirectory, withIntermediateDirectories: true)
                 let items = try (0..<5).map { index -> ShelfItem in
-                    let url = fixtureDirectory.appendingPathComponent("fixture-\(index + 1).txt")
+                    let fileName = index == 0
+                        ? "fixture-1-this-is-a-very-long-file-name-that-does-not-fit-in-a-list-row.txt"
+                        : "fixture-\(index + 1).txt"
+                    let url = fixtureDirectory.appendingPathComponent(fileName)
                     try Data("Shelf UI test fixture \(index + 1)".utf8).write(to: url)
                     return ShelfItem(
                         id: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", index + 1))!,

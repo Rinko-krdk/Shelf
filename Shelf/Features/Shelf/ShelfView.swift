@@ -7,6 +7,13 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum ShelfLayout {
+    static let contentWidth: CGFloat = 164
+    static let compactStackWidth: CGFloat = 102
+    static let expandedListWidth: CGFloat = 156
+    static let contentHeight: CGFloat = 92
+}
+
 struct ShelfView: View {
     @ObservedObject private var languageManager = LanguageManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -25,7 +32,7 @@ struct ShelfView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 8) {
+            HStack(spacing: 24) {
                 FileStackView(
                     items: viewModel.items,
                     selectedIDs: Set(selection.selectedIDs),
@@ -35,10 +42,23 @@ struct ShelfView: View {
                     onPromiseCompleted: completePromise,
                     onDragRejected: { viewModel.reportTransferError($0) }
                 )
-                .frame(width: 102, height: 72)
+                .frame(width: ShelfLayout.compactStackWidth, height: 72)
 
                 if isHovering {
-                    VStack(spacing: 7) {
+                    VStack(spacing: 4) {
+                        Button(action: selectAllItems) {
+                            Image(systemName: areAllItemsSelected ? "circle.slash" : "checkmark.circle")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .background(.regularMaterial, in: Circle())
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                        }
+                        .help(selectionButtonLabel)
+                        .accessibilityLabel(selectionButtonLabel)
+                        .accessibilityIdentifier("shelf-select-all-button")
+                        .disabled(viewModel.items.isEmpty)
+
                         Button { isConfirmingClear = true } label: {
                             Image(systemName: "trash")
                                 .font(.system(size: 11, weight: .semibold))
@@ -72,27 +92,28 @@ struct ShelfView: View {
                     Color.clear.frame(width: 28)
                 }
             }
-            .frame(width: 148, height: 92)
+            .frame(width: ShelfLayout.contentWidth, height: ShelfLayout.contentHeight)
 
             if isExpanded {
                 Rectangle()
                     .fill(Color.primary.opacity(0.08))
                     .frame(height: 1)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 4)
 
                 FileStackListView(
                     items: viewModel.items,
                     selectedIDs: Set(selection.selectedIDs),
                     onSelect: selectItem,
+                    onSweepSelection: { selection.add($0, orderedIDs: orderedIDs) },
                     onDoubleClick: openItem,
                     onPromiseCompleted: completePromise,
                     onDragRejected: { viewModel.reportTransferError($0) }
                 )
-                .frame(width: 140, height: expandedListHeight)
+                .frame(width: ShelfLayout.expandedListWidth, height: expandedListHeight)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .frame(width: 148, height: contentHeight, alignment: .top)
+        .frame(width: ShelfLayout.contentWidth, height: contentHeight, alignment: .top)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(.regularMaterial)
@@ -201,6 +222,14 @@ struct ShelfView: View {
         FileStackListView.height(for: viewModel.items.count)
     }
 
+    private var areAllItemsSelected: Bool {
+        !viewModel.items.isEmpty && selection.selectedIDs.count == viewModel.items.count
+    }
+
+    private var selectionButtonLabel: String {
+        L10n.string(areAllItemsSelected ? "Deselect All" : "Select All")
+    }
+
     private var contentHeight: CGFloat {
         92 + (isExpanded ? 13 + expandedListHeight : 0)
     }
@@ -212,6 +241,14 @@ struct ShelfView: View {
             shift: modifiers.contains(.shift),
             orderedIDs: orderedIDs
         )
+    }
+
+    private func selectAllItems() {
+        if areAllItemsSelected {
+            selection.clear()
+        } else {
+            selection.replace(with: Set(orderedIDs), orderedIDs: orderedIDs)
+        }
     }
 
     private func toggleOverflow() {
