@@ -11,11 +11,13 @@ import Combine
 final class SettingsWindowController: NSWindowController {
     private var hasPositionedWindow = false
     private var languageCancellable: AnyCancellable?
+    private let loginItemService: LoginItemService
 
-    init(shortcutService: ShortcutService) {
+    init(shortcutService: ShortcutService, appPreferences: AppPreferences, loginItemService: LoginItemService) {
+        self.loginItemService = loginItemService
         let settingsWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 340),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 600),
+            styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
@@ -23,7 +25,7 @@ final class SettingsWindowController: NSWindowController {
         settingsWindow.isReleasedWhenClosed = false
         settingsWindow.identifier = NSUserInterfaceItemIdentifier("shelf-settings-window")
         settingsWindow.contentView = NSHostingView(
-            rootView: SettingsView(shortcutService: shortcutService)
+            rootView: SettingsView(shortcutService: shortcutService, appPreferences: appPreferences, loginItemService: loginItemService)
         )
         super.init(window: settingsWindow)
         languageCancellable = LanguageManager.shared.$language.sink { [weak self] _ in
@@ -37,6 +39,7 @@ final class SettingsWindowController: NSWindowController {
 
     func showSettings() {
         guard let window else { return }
+        loginItemService.refresh()
         if !hasPositionedWindow {
             window.center()
             hasPositionedWindow = true

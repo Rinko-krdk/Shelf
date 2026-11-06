@@ -9,6 +9,7 @@ Shelf is a macOS menu bar utility for temporarily holding files. Drag files from
 * Cancelled or failed transfers keep the original files unchanged.
 * Removing items or clearing Shelf only removes references, not the source files.
 * Shelf is temporary and clears its contents when the app launches, is hidden, or starts a new session.
+* Settings includes native launch at login, a mouse-shake gesture switch, language and shortcut controls, version/build information, and a feedback link. Login startup is opt-in; menu and shortcut activation work with shake disabled.
 
 ## Privacy
 
@@ -17,6 +18,8 @@ Shelf does not upload or edit file contents. It only stores temporary file bookm
 Original files are deleted only after you drag them out and the destination successfully completes the transfer.
 
 ## Development
+
+For local Apple Silicon preview packaging, distribution decisions, and release acceptance, see [release preparation](docs/RELEASE.md). This workflow produces an unnotarized test preview, not a final release.
 
 Project instructions are in [AGENTS.md](AGENTS.md); see the [architecture](docs/ARCHITECTURE.md) and [roadmap](docs/ROADMAP.md).
 

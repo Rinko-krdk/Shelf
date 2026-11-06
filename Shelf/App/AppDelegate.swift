@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import ServiceManagement
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -14,11 +15,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mouseShakeMonitor: MouseShakeMonitor?
     private var uiTestFixtureDirectory: URL?
     let shortcutService = ShortcutService()
+    let appPreferences: AppPreferences
+    let loginItemService: LoginItemService
+
+    override init() {
+        if ProcessInfo.processInfo.arguments.contains("--shelf-ui-test-settings") {
+            let environment = ProcessInfo.processInfo.environment
+            let defaults = UserDefaults(suiteName: environment["SHELF_UI_TEST_PREFERENCES_SUITE"] ?? "Shelf.SettingsUITests")!
+            appPreferences = AppPreferences(defaults: defaults)
+            loginItemService = LoginItemService(client: SettingsFixtureLoginItemClient(statusName: environment["SHELF_UI_TEST_LOGIN_STATUS"]))
+        } else {
+            appPreferences = AppPreferences()
+            loginItemService = LoginItemService()
+        }
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         if ProcessInfo.processInfo.arguments.contains("--shelf-reset-language") {
             LanguageManager.shared.setLanguage(.english)
+        }
+        if ProcessInfo.processInfo.arguments.contains("--shelf-ui-test-settings") {
+            NSApp.appearance = NSAppearance(named: ProcessInfo.processInfo.arguments.contains("--shelf-ui-test-dark-appearance") ? .darkAqua : .aqua)
         }
 
         let viewModel = ShelfViewModel()
@@ -64,7 +83,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let panelController = ShelfPanelController(viewModel: viewModel)
-        let settingsWindowController = SettingsWindowController(shortcutService: shortcutService)
+        let settingsWindowController = SettingsWindowController(
+            shortcutService: shortcutService,
+            appPreferences: appPreferences,
+            loginItemService: loginItemService
+        )
         let menuBarController = MenuBarController(
             panelController: panelController,
             viewModel: viewModel,
@@ -75,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mouseShakeMonitor.onShake = { [weak panelController] in
             panelController?.summonByShake()
         }
-        mouseShakeMonitor.start()
+        mouseShakeMonitor.bind(to: appPreferences)
 
         shortcutService.onShortcut = { [weak panelController] in panelController?.toggle() }
         if !shortcutService.register(), let message = shortcutService.lastError {
@@ -107,5 +130,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidBecomeActive(_ notification: Notification) {
         viewModel?.refreshStatuses()
+        loginItemService.refresh()
     }
+}
+
+/// Opt-in UI fixture: exercising settings must never register a real login item.
+@MainActor
+private final class SettingsFixtureLoginItemClient: LoginItemClient {
+    var status: SMAppService.Status
+    private let failsRegistration: Bool
+
+    init(statusName: String?) {
+        failsRegistration = statusName == "error"
+        switch statusName {
+        case "requiresApproval": status = .requiresApproval
+        case "notFound": status = .notFound
+        default: status = .notRegistered
+        }
+    }
+
+    func register() throws {
+        if failsRegistration { throw CocoaError(.fileWriteNoPermission) }
+        status = .enabled
+    }
+    func unregister() async throws { status = .notRegistered }
+    func openSystemSettings() {}
 }

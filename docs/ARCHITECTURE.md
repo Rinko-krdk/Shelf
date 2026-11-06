@@ -5,11 +5,19 @@ Shelf is a macOS 15+ menu bar utility built with SwiftUI and AppKit. It temporar
 ## Components
 
 - `App/AppDelegate`: lifecycle, service composition, session boundaries, shortcuts, shake handling, and refresh.
-- `Features/MenuBar` and `Features/Settings`: menu, settings, shortcut, and language controls.
+- `Features/MenuBar` and `Features/Settings`: menu and grouped settings for general behavior, language, shortcuts, and app information.
 - `Features/Shelf`: panel positioning, stack and list UI, selection, drop importing, and file-promise drag output.
 - `State/ShelfViewModel`: observable items, selection-related operations, session cleanup, persistence scheduling, transfer completion, and errors.
 - `Domain/ShelfItem`: nonisolated, sendable file reference and status; `ShelfDocument` stores versioned items in display order for the persistence actor. Existing decoded duplicates retain distinct IDs; new additions are deduplicated by normalized file location.
 - `Services`: security-scoped bookmarks and source deletion; actor-based persistence; Quick Look thumbnails; shortcut, shake, and localization support.
+
+## Preferences and login startup
+
+AppDelegate owns one `AppPreferences` and one `LoginItemService`, shared by the SwiftUI Settings scene and the menu-bar settings window. `AppPreferences` stores the mouse-shake preference in UserDefaults (enabled by default). `MouseShakeMonitor` observes it to install/remove its event monitor; generation checks discard queued callbacks after disabling or replacing that monitor. Shortcut and menu activation are independent of this preference.
+
+`LoginItemService` wraps an injectable `LoginItemClient`; its production client uses `SMAppService.mainApp`. Initialization only reads system status. Registration is requested by a user action, pending approval remains cancellable, and failed operations re-read system status before reporting an inline error. Settings display and app activation refresh status; no local Boolean overrides the system's registration state. Automated tests use substitute clients and never register real login items. Normal login launch retains the accessory lifecycle without opening settings or the Shelf panel.
+
+App version/build and copyright in Settings come from bundle metadata. Feedback opens the project's GitHub Issues page in the browser without collecting or sending a report automatically.
 
 ## Sessions and storage
 

@@ -15,6 +15,7 @@ build/
 .swiftpm/
 
 # Distribution artifacts
+dist/
 *.ipa
 *.dSYM
 *.dSYM.zip

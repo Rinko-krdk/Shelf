@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import Combine
 import Foundation
 
 struct MouseShakeDetector {
@@ -64,22 +65,50 @@ struct MouseShakeDetector {
 final class MouseShakeMonitor {
     private var detector: MouseShakeDetector
     private var monitor: Any?
+    private var monitorGeneration = 0
+    private var preferenceCancellable: AnyCancellable?
+    private let installMonitor: (@escaping (NSEvent) -> Void) -> Any?
+    private let removeMonitor: (Any) -> Void
+    private let cursorLocation: () -> NSPoint
     var onShake: (() -> Void)?
 
-    init(detector: MouseShakeDetector? = nil) {
+    init(
+        detector: MouseShakeDetector? = nil,
+        installMonitor: ((@escaping (NSEvent) -> Void) -> Any?)? = nil,
+        removeMonitor: ((Any) -> Void)? = nil,
+        cursorLocation: (() -> NSPoint)? = nil
+    ) {
         self.detector = detector ?? MouseShakeDetector()
+        self.installMonitor = installMonitor ?? { handler in
+            NSEvent.addGlobalMonitorForEvents(
+                matching: [.leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .leftMouseUp, .rightMouseUp, .otherMouseUp],
+                handler: handler
+            )
+        }
+        self.removeMonitor = removeMonitor ?? { NSEvent.removeMonitor($0) }
+        self.cursorLocation = cursorLocation ?? { NSEvent.mouseLocation }
+    }
+
+    var isRunning: Bool { monitor != nil }
+
+    func bind(to preferences: AppPreferences) {
+        preferenceCancellable = preferences.$shakeToShowEnabled.removeDuplicates().sink { [weak self] enabled in
+            if enabled { self?.start() }
+            else { self?.stop() }
+        }
     }
 
     func start() {
         guard monitor == nil else { return }
-        monitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .leftMouseUp, .rightMouseUp, .otherMouseUp]
-        ) { [weak self] event in
+        monitorGeneration += 1
+        let generation = monitorGeneration
+        let cursorLocation = self.cursorLocation
+        monitor = installMonitor { [weak self] event in
             let eventType = event.type
             let eventTime = event.timestamp
-            let cursorPoint = NSEvent.mouseLocation
+            let cursorPoint = cursorLocation()
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, monitor != nil, monitorGeneration == generation else { return }
                 switch eventType {
                 case .leftMouseUp, .rightMouseUp, .otherMouseUp:
                     detector.endDrag()
@@ -93,12 +122,13 @@ final class MouseShakeMonitor {
     }
 
     func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
+        if let monitor { removeMonitor(monitor) }
         monitor = nil
+        monitorGeneration += 1
         detector.endDrag()
     }
 
     deinit {
-        if let monitor { NSEvent.removeMonitor(monitor) }
+        if let monitor { removeMonitor(monitor) }
     }
 }

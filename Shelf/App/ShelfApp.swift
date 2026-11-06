@@ -12,7 +12,11 @@ struct ShelfApp: App {
 
     var body: some Scene {
         Settings {
-            SettingsView(shortcutService: appDelegate.shortcutService)
+            SettingsView(
+                shortcutService: appDelegate.shortcutService,
+                appPreferences: appDelegate.appPreferences,
+                loginItemService: appDelegate.loginItemService
+            )
         }
     }
 }

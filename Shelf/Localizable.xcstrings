@@ -52,6 +52,23 @@
         }
       }
     },
+    "About" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于"
+          }
+        }
+      }
+    },
     "An unknown error occurred." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -222,6 +239,23 @@
         }
       }
     },
+    "Could not change login startup: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not change login startup: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更改登录时启动设置：%@"
+          }
+        }
+      }
+    },
     "Could not create drag previews for all staged files. Check that the files are still accessible." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -341,6 +375,23 @@
         }
       }
     },
+    "Deselect All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deselect All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消全选"
+          }
+        }
+      }
+    },
     "Drag the frame to move Shelf" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -409,6 +460,23 @@
         }
       }
     },
+    "Enable mouse-shake gestures while dragging files." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable mouse-shake gestures while dragging files."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动文件时启用鼠标摇动手势。"
+          }
+        }
+      }
+    },
     "File not found" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -439,6 +507,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "文件引用已失效"
+          }
+        }
+      }
+    },
+    "General" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通用"
           }
         }
       }
@@ -511,6 +596,40 @@
         }
       }
     },
+    "Launch at Login" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch at Login"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录时启动"
+          }
+        }
+      }
+    },
+    "macOS could not find the login item. Turn on the switch to try registering it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS could not find the login item. Turn on the switch to try registering it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 未找到登录项。请打开开关以尝试注册。"
+          }
+        }
+      }
+    },
     "Not selected" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -558,6 +677,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 个暂存文件"
+          }
+        }
+      }
+    },
+    "Open Login Items Settings…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Login Items Settings…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开登录项设置…"
           }
         }
       }
@@ -664,6 +800,40 @@
         }
       }
     },
+    "Report an Issue…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report an Issue…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "反馈问题…"
+          }
+        }
+      }
+    },
+    "Requested. Waiting for system approval; login startup is not active yet." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requested. Waiting for system approval; login startup is not active yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已申请，等待系统批准；登录时启动尚未生效。"
+          }
+        }
+      }
+    },
     "Select All" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -677,23 +847,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全选"
-          }
-        }
-      }
-    },
-    "Deselect All" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deselect All"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取消全选"
           }
         }
       }
@@ -766,8 +919,24 @@
         }
       }
     },
+    "Shake Mouse to Show Shelf" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shake Mouse to Show Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摇动鼠标唤出 Shelf"
+          }
+        }
+      }
+    },
     "Shelf" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -902,6 +1071,23 @@
         }
       }
     },
+    "Start Shelf in the menu bar when you log in." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Shelf in the menu bar when you log in."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录时在菜单栏启动 Shelf。"
+          }
+        }
+      }
+    },
     "There are no files to drag from Shelf." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1017,6 +1203,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用此文件"
+          }
+        }
+      }
+    },
+    "Version %@ (build %@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ (build %@)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %@（构建 %@）"
           }
         }
       }
