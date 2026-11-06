@@ -256,19 +256,19 @@
         }
       }
     },
-    "Could not open %@. Check file access permissions." : {
+    "Could not open %@. Check file permissions and whether an app is available to open it." : {
       "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Could not open %@. Check file access permissions."
+            "value" : "Could not open %@. Check file permissions and whether an app is available to open it."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法打开文件：%@。请检查文件访问权限。"
+            "value" : "无法打开“%@”。请检查文件权限，以及是否有可打开此文件的应用。"
           }
         }
       }

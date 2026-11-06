@@ -260,20 +260,7 @@ struct ShelfView: View {
     }
 
     private func openItem(_ id: ShelfItem.ID) {
-        guard let item = viewModel.items.first(where: { $0.id == id }),
-              item.status == .available,
-              let url = item.resolvedURL,
-              url.isFileURL else {
-            viewModel.reportTransferError(L10n.string("This file is unavailable and cannot be opened."))
-            return
-        }
-
-        let startedAccessing = url.startAccessingSecurityScopedResource()
-        let opened = NSWorkspace.shared.open(url)
-        if startedAccessing { url.stopAccessingSecurityScopedResource() }
-        if !opened {
-            viewModel.reportTransferError(L10n.string("Could not open %@. Check file access permissions.", item.displayName))
-        }
+        viewModel.openItem(id: id) { NSWorkspace.shared.open($0) }
     }
 
 }

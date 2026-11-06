@@ -116,6 +116,11 @@ struct FileStackView: View {
             .frame(width: 56, height: 62)
         }
         .frame(width: 56, height: 62)
+        .overlay(alignment: .bottomTrailing) {
+            if item.warningDescription != nil {
+                ShelfItemWarningBadge()
+            }
+        }
         .rotationEffect(.degrees(Double(index) * 3 - 3))
     }
 
@@ -204,7 +209,7 @@ struct FileStackListView: View {
                         tooltipSize: tooltipSize,
                         containerSize: geometry.size
                     )
-                    Text(item.displayName)
+                    Text(item.hoverDescription)
                         .font(.system(size: 11))
                         .foregroundStyle(.primary)
                         .lineLimit(nil)
@@ -249,6 +254,12 @@ struct FileStackListView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 20, height: 20)
                     .opacity(item.status == .available ? 1 : 0.55)
+                    .overlay(alignment: .bottomTrailing) {
+                        if item.warningDescription != nil {
+                            ShelfItemWarningBadge()
+                                .offset(x: 4, y: 3)
+                        }
+                    }
                 Text(item.displayName)
                     .font(.system(size: 12))
                     .lineLimit(1)
@@ -258,11 +269,6 @@ struct FileStackListView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.accentColor)
-                }
-                if item.status != .available {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.orange)
                 }
             }
             .padding(.horizontal, 7)

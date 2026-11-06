@@ -26,6 +26,9 @@ nonisolated struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     /// This is populated while the app is running and is intentionally not persisted.
     var resolvedURL: URL?
 
+    /// Opening errors belong to this session, not the persisted file reference or availability status.
+    var hasOpenFailure = false
+
     init(
         id: UUID = UUID(),
         bookmarkData: Data? = nil,

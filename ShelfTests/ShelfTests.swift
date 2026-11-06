@@ -82,6 +82,105 @@ struct ShelfTests {
         #expect(item.resolvedURL == sourceURL)
     }
 
+    @Test func openingRefreshesMovedAndRenamedFileBeforeCallingOpener() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("original.txt")
+        let targetDirectory = directory.appendingPathComponent("moved", isDirectory: true)
+        try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
+        let destination = targetDirectory.appendingPathComponent("改名后的文件.txt")
+        let contents = Data("original contents".utf8)
+        try contents.write(to: source)
+        let model = ShelfViewModel(persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json")))
+        model.add(urls: [source])
+        let id = try #require(model.items.first?.id)
+        try FileManager.default.moveItem(at: source, to: destination)
+
+        var openedURL: URL?
+        model.openItem(id: id) { url in
+            openedURL = url
+            return (try? Data(contentsOf: url)) == contents
+        }
+        await model.waitForPendingOperations()
+
+        #expect(openedURL?.standardizedFileURL == destination.standardizedFileURL)
+        #expect(model.items.first?.id == id)
+        #expect(model.items.first?.displayName == destination.lastPathComponent)
+        #expect(model.items.first?.fallbackURL?.standardizedFileURL == destination.standardizedFileURL)
+        #expect(model.items.first?.status == .available)
+        #expect(model.items.first?.warningDescription == nil)
+        #expect(try Data(contentsOf: destination) == contents)
+    }
+
+    @Test func openFailureStaysPerItemAndClearsOnlyAfterSuccessfulRetry() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = directory.appendingPathComponent("first.txt")
+        let second = directory.appendingPathComponent("second.txt")
+        try Data("first".utf8).write(to: first)
+        try Data("second".utf8).write(to: second)
+        let model = ShelfViewModel(persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json")))
+        model.add(urls: [first, second])
+        let id = try #require(model.items.first?.id)
+        var attempts = 0
+        model.openItem(id: id) { _ in attempts += 1; return false }
+
+        #expect(attempts == 1)
+        #expect(model.items[0].status == .available)
+        #expect(model.items[0].hasOpenFailure)
+        #expect(model.items[0].warningDescription != nil)
+        #expect(model.items[1].warningDescription == nil)
+        #expect(model.lastError == nil)
+        #expect(ShelfDragEligibility.canStartDrag(model.items))
+        model.refreshStatuses()
+        #expect(model.items[0].hasOpenFailure)
+
+        let data = try JSONEncoder().encode(ShelfDocument(items: model.items))
+        let decoded = try JSONDecoder().decode(ShelfDocument.self, from: data)
+        #expect(!decoded.items[0].hasOpenFailure)
+        #expect(!String(decoding: data, as: UTF8.self).contains("hasOpenFailure"))
+
+        model.openItem(id: id) { _ in true }
+        #expect(!model.items[0].hasOpenFailure)
+        #expect(model.items[0].warningDescription == nil)
+        #expect(try Data(contentsOf: first) == Data("first".utf8))
+        model.openItem(id: id) { _ in false }
+        model.removeAllForSessionBoundary()
+        model.add(urls: [first])
+        #expect(!model.items[0].hasOpenFailure)
+        await model.waitForPendingOperations()
+    }
+
+    @Test func openingDeletedFileUpdatesStatusWithoutLaunchingAnApp() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("deleted.txt")
+        try Data("content".utf8).write(to: source)
+        let model = ShelfViewModel(persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf.json")))
+        model.add(urls: [source])
+        let id = try #require(model.items.first?.id)
+        try FileManager.default.removeItem(at: source)
+        var didOpen = false
+        model.openItem(id: id) { _ in didOpen = true; return true }
+        await model.waitForPendingOperations()
+
+        #expect(!didOpen)
+        #expect(model.items.first?.status == .missing)
+        #expect(model.items.first?.warningDescription == L10n.string("File not found"))
+        #expect(model.lastError == nil)
+    }
+
+    @Test func unavailableStatusTakesPrecedenceOverPreviousOpenFailure() {
+        var item = ShelfItem(displayName: "test.txt", status: .available)
+        item.hasOpenFailure = true
+        #expect(item.warningDescription?.contains("test.txt") == true)
+        item.status = .inaccessible
+        #expect(item.warningDescription == L10n.string("Cannot access file"))
+        item.status = .missing
+        #expect(item.warningDescription == L10n.string("File not found"))
+        #expect(item.hoverDescription.contains(L10n.string("File not found")))
+    }
+
     @Test func filenameTooltipPrefersAboveHoveredRowAndFallsBelowAtTop() {
         let size = CGSize(width: 140, height: 52)
         let container = CGSize(width: 156, height: 180)

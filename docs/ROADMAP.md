@@ -29,6 +29,15 @@ From the repository root, using the commands in [README](../README.md#developmen
 - The user reported manually testing the UI and functionality successfully before this cleanup. The removed window-drag UI test does not cover the cleaned version; recheck movement and real file transfer when preparing the release candidate.
 - Temporary pointer and window-stack logging was removed. The previously tested window level and first-mouse behavior remain in place.
 
+### File warning update: 2026-11-07
+
+- Compact and expanded file icons now show the same warning badge for unavailable files or opening failures, with localized hover text and accessibility help. Double-clicking refreshes the bookmark before opening; launch errors stay with the item instead of appearing as transfer errors. Successful opening clears the session-only launch error.
+- A signed build and 44 unit tests passed, including same-volume move/rename before opening, deleted sources, per-item launch failures, retry, and exclusion of launch errors from persisted data. The old `/private/tmp/ShelfWorkflowDD` test runner could not be linked; the test run succeeded in a fresh `/private/tmp/ShelfFileWarningsDD` directory.
+- The user reported the prior transfer acceptance had no issues and other manual checks were generally successful. A Finder-only source-move issue could not be reproduced on retry; the cause is unconfirmed. Keep it under observation rather than treating it as a diagnosed Finder defect.
+- The four existing UI tests passed in the full run. After correcting the new tests to hover the target row before clicking (avoiding the previous row's long tooltip during synthetic hit testing), both new light/dark warning tests passed in a targeted run. Compact/expanded screenshots were inspected in both appearances; warning reasons and selection are visible. The final signed build passed. Commands used `xcodebuild -quiet build` and `test` with the README's project/scheme/destination, `/private/tmp/ShelfFileWarningsDD`, and normal signing; test selections were `ShelfTests`, `ShelfUITests`, then `ShelfUITests/ShelfUITests/testFileWarningsInDarkAppearance` and `ShelfUITests/ShelfUITests/testFileWarningsInLightAppearance`.
+- The user confirmed manual acceptance of permission-loss behavior and desktop drag-and-drop with warning badges, and accepted that Shelf can still open a source after it is moved by resolving its bookmark to the new location.
+- VoiceOver speech is unverified and explicitly deferred by the user; do not record it as passed or schedule it as an immediate acceptance task.
+
 ## Active development
 
 1. Recheck window movement and representative file transfers on the cleaned release candidate; review remaining release configuration and repeat relevant tests after changes.

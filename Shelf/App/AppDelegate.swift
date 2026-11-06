@@ -23,7 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let viewModel = ShelfViewModel()
         viewModel.removeAllForSessionBoundary()
-        if ProcessInfo.processInfo.arguments.contains("--shelf-ui-test-fixture") {
+        let usesWarningFixture = ProcessInfo.processInfo.arguments.contains("--shelf-ui-test-warning-fixture")
+        if ProcessInfo.processInfo.arguments.contains("--shelf-ui-test-fixture") || usesWarningFixture {
+            NSApp.appearance = NSAppearance(named: ProcessInfo.processInfo.arguments.contains("--shelf-ui-test-dark-appearance") ? .darkAqua : .aqua)
             let fixtureDirectory = FileManager.default.temporaryDirectory
                 .appendingPathComponent("ShelfUITest-\(UUID().uuidString)", isDirectory: true)
             do {
@@ -34,14 +36,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         : "fixture-\(index + 1).txt"
                     let url = fixtureDirectory.appendingPathComponent(fileName)
                     try Data("Shelf UI test fixture \(index + 1)".utf8).write(to: url)
-                    return ShelfItem(
+                    let reference = ShelfFileService().makeItem(for: url)
+                    var item = ShelfItem(
                         id: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", index + 1))!,
+                        bookmarkData: reference.bookmarkData,
+                        bookmarkAllowsWriteAccess: reference.bookmarkAllowsWriteAccess,
                         fallbackURLString: url.absoluteString,
                         displayName: url.lastPathComponent,
                         contentTypeIdentifier: "public.plain-text",
-                        status: .available,
+                        status: reference.status,
                         resolvedURL: url
                     )
+                    if usesWarningFixture {
+                        if index == 0 { item.hasOpenFailure = true }
+                        if index == 1 {
+                            try FileManager.default.removeItem(at: url)
+                            item.status = .missing
+                        }
+                    }
+                    return item
                 }
                 viewModel.add(items: items)
                 uiTestFixtureDirectory = fixtureDirectory

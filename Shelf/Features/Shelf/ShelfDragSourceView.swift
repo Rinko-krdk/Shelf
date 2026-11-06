@@ -58,7 +58,8 @@ struct ShelfDragSourceView: NSViewRepresentable {
         view.setAccessibilityLabel(item.displayName)
         view.setAccessibilityIdentifier(accessibilityIdentifier)
         view.setAccessibilityValue(isSelected ? L10n.string("Selected") : L10n.string("Not selected"))
-        view.toolTip = nil
+        view.setAccessibilityHelp(item.warningDescription)
+        view.toolTip = item.warningDescription == nil ? nil : item.hoverDescription
     }
 }
 

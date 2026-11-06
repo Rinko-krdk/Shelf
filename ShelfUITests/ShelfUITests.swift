@@ -122,6 +122,65 @@ final class ShelfUITests: XCTestCase {
     }
 
     @MainActor
+    func testFileWarningsInLightAppearance() throws {
+        try checkFileWarnings(darkAppearance: false)
+    }
+
+    @MainActor
+    func testFileWarningsInDarkAppearance() throws {
+        try checkFileWarnings(darkAppearance: true)
+    }
+
+    @MainActor
+    private func checkFileWarnings(darkAppearance: Bool) throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--shelf-ui-test-warning-fixture", "--shelf-reset-language"]
+        if darkAppearance { app.launchArguments.append("--shelf-ui-test-dark-appearance") }
+        app.launch()
+        defer { app.terminate() }
+        let statusItem = app.menuBars.statusItems["Shelf"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+        app.menuItems["Show Shelf"].click()
+        XCTAssertTrue(app.dialogs["shelf-panel"].waitForExistence(timeout: 3))
+
+        let firstStackItem = app.descendants(matching: .any)["shelf-stack-item-00000000-0000-0000-0000-000000000001"]
+        firstStackItem.click()
+        XCTAssertEqual(firstStackItem.value as? String, "Selected")
+        let compactScreenshot = XCTAttachment(screenshot: app.screenshot())
+        compactScreenshot.name = "Compact file warning"
+        compactScreenshot.lifetime = .keepAlways
+        add(compactScreenshot)
+
+        app.buttons["shelf-overflow-toggle"].click()
+        let firstRow = app.descendants(matching: .any)["shelf-expanded-file-row-00000000-0000-0000-0000-000000000001"]
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 2))
+        firstRow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        let tooltip = app.staticTexts["shelf-filename-tooltip"]
+        XCTAssertTrue(tooltip.waitForExistence(timeout: 2))
+        XCTAssertTrue((tooltip.value as? String ?? tooltip.label).contains("Could not open"))
+        XCTAssertFalse((tooltip.value as? String ?? tooltip.label).contains("could not be moved"))
+
+        let missingRow = app.descendants(matching: .any)["shelf-expanded-file-row-00000000-0000-0000-0000-000000000002"]
+        let missingRowCenter = missingRow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Move the pointer first so the previous row's long tooltip no longer covers this row.
+        missingRowCenter.hover()
+        let missingReason = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "File not found", "File not found"),
+            object: tooltip
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [missingReason], timeout: 2), .completed)
+        missingRowCenter.click()
+        XCTAssertEqual(missingRow.value as? String, "Selected")
+        missingRowCenter.doubleClick()
+        XCTAssertEqual(app.alerts.count, 0)
+        let expandedScreenshot = XCTAttachment(screenshot: app.screenshot())
+        expandedScreenshot.name = "Expanded file warning and reason"
+        expandedScreenshot.lifetime = .keepAlways
+        add(expandedScreenshot)
+    }
+
+    @MainActor
     func testSettingsMenuItemOpensSettings() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--shelf-reset-language"]

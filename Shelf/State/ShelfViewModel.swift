@@ -144,8 +144,32 @@ final class ShelfViewModel: ObservableObject {
 
     func reselect(id: ShelfItem.ID, with url: URL) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        items[index] = fileService.relocated(items[index], to: url)
+        var replacement = fileService.relocated(items[index], to: url)
+        replacement.hasOpenFailure = items[index].hasOpenFailure
+        items[index] = replacement
         schedulePersistence()
+    }
+
+    func openItem(id: ShelfItem.ID, using opener: (URL) -> Bool) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        let refreshedItem = fileService.restore(items[index])
+        if refreshedItem != items[index] {
+            items[index] = refreshedItem
+            schedulePersistence()
+        }
+        guard refreshedItem.status == .available,
+              let url = refreshedItem.resolvedURL,
+              url.isFileURL else { return }
+
+        guard url.startAccessingSecurityScopedResource() else {
+            items[index].status = .inaccessible
+            schedulePersistence()
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        // A launch failure doesn't mean the file is missing or cannot be transferred.
+        items[index].hasOpenFailure = !opener(url)
     }
 
     func clearError() {

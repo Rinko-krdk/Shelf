@@ -15,6 +15,8 @@ Shelf is a macOS 15+ menu bar utility built with SwiftUI and AppKit. It temporar
 
 Drops are parsed into file URLs and converted to items. A folder is one item; repeated additions of the same file location are ignored. Activation and ordinary display refresh file status; unavailable items remain visible and can be reselected or removed.
 
+Double-clicking resolves the item's bookmark again before opening, updating its location, name, and availability. Unavailable files and opening failures share a warning badge and a localized reason in the compact stack, expanded-list tooltip, and native drag view's accessibility help. An opening failure is a per-item, session-only flag; it does not change file availability or drag eligibility and clears after a successful open. It is excluded from persisted metadata.
+
 Startup and explicit hiding clear references without deleting source files. Shaking a nonempty Shelf clears and hides it; shaking an empty Shelf displays it. A timeout hides an empty window. Old items are not restored at launch, even though the persistence service supports loading for other uses and tests.
 
 Security-scoped bookmarks provide access; a path or write-access flag alone does not guarantee permission. JSON metadata is stored in Application Support at `<bundle identifier>/shelf-items.json`; file contents are not stored. Saves use generation checks and an atomic replacement. The loader handles old fields, unsupported versions, malformed items, and corrupt documents; startup cleanup is a separate path.
