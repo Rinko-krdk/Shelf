@@ -35,7 +35,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(copyright.waitForExistence(timeout: 2))
         XCTAssertTrue(copyright.isHittable)
         XCTAssertEqual(text(copyright), "© 2026 Rinko")
-        XCTAssertEqual(text(app.staticTexts["app-version"]), "Version 1.0 (build 3)")
+        XCTAssertEqual(text(app.staticTexts["app-version"]), "Version 1.0 (build 4)")
         XCTAssertTrue(app.descendants(matching: .any)["report-issue-link"].exists)
         attachScreenshot(app, name: "Settings light English about")
 

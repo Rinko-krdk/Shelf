@@ -19,7 +19,7 @@ shelf_built_app="$shelf_work_dir/DerivedData/Build/Products/Release/Shelf.app"
 shelf_version="$(plutil -extract CFBundleShortVersionString raw "$shelf_built_app/Contents/Info.plist")"
 shelf_build="$(plutil -extract CFBundleVersion raw "$shelf_built_app/Contents/Info.plist")"
 shelf_minimum_os="$(plutil -extract LSMinimumSystemVersion raw "$shelf_built_app/Contents/Info.plist")"
-shelf_package_name="Shelf-$shelf_version-preview.3-arm64"
+shelf_package_name="Shelf-$shelf_version-preview.4-arm64"
 shelf_zip="$shelf_output_dir/$shelf_package_name.zip"
 if [[ -e "$shelf_zip" || -e "$shelf_zip.sha256" ]]; then
     printf 'Refusing to overwrite an existing package. Choose a new output directory.\n' >&2
@@ -47,13 +47,14 @@ for shelf_entitlement in com.apple.security.app-sandbox com.apple.security.files
 done
 
 cp "$shelf_repo_root/docs/PREVIEW_README.txt" "$shelf_stage/README.txt"
+cp "$shelf_repo_root/LICENSE" "$shelf_stage/LICENSE"
 shelf_source_commit="$(git -C "$shelf_repo_root" rev-parse HEAD)"
 shelf_source_state=clean
 if [[ -n "$(git -C "$shelf_repo_root" status --porcelain)" ]]; then
     shelf_source_state='includes uncommitted changes'
 fi
 cat > "$shelf_stage/BUILD.txt" <<EOF
-Shelf $shelf_version preview.3 (build $shelf_build)
+Shelf $shelf_version preview.4 (build $shelf_build)
 Architecture: $shelf_archs
 Minimum macOS: $shelf_minimum_os
 Signing: ad-hoc; no Developer ID; NOT notarized

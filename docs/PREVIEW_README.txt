@@ -1,4 +1,4 @@
-Shelf 1.0 preview.3 — Apple Silicon / macOS 15+
+Shelf 1.0 preview.4 — Apple Silicon / macOS 15+
 
 这是未公证测试版，不是正式发布版。使用本地 ad-hoc 签名，没有 Developer ID。
 This preview is ad-hoc signed, without Developer ID or Apple notarization.
@@ -34,11 +34,16 @@ If login startup awaits approval, use the settings link to macOS Login Items. Re
 限制 / Limitations
 - 仅 Apple Silicon；Intel 未支持或验收。Apple Silicon only; Intel is not supported or validated.
 - VoiceOver 朗读尚未验收。VoiceOver speech has not been validated.
-- 本 preview.3 的安装、登录启动、升级及下载后首次启动仍需验收。Installation, native login startup, upgrades, and first launch after browser download still need acceptance for this preview.3.
+- 本 preview.4 的安装、登录启动、升级及下载后首次启动仍需验收。Installation, native login startup, upgrades, and first launch after browser download still need acceptance for preview.4.
 
 隐私 / Privacy
 Shelf 不上传文件内容，仅在本机保存临时书签和基本元数据，用于显示和文件操作。
 Shelf does not upload file contents. It keeps temporary bookmarks and basic metadata locally for display and file operations.
+
+许可证与源码 / License and source
+Shelf 以 GPL-3.0-only 许可发布；许可证全文见随附的 LICENSE。对应源码可从同一 Release 页面下载：
+Shelf is licensed under GPL-3.0-only; see the included LICENSE. Download the corresponding source from the same Release page:
+https://github.com/Rinko-krdk/Shelf/releases/tag/v1.0-preview.4
 
 反馈 / Feedback
 https://github.com/Rinko-krdk/Shelf/issues
