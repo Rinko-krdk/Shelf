@@ -153,29 +153,61 @@ struct ShelfTests {
         #expect(urls == [firstURL, secondURL, firstURL])
     }
 
-    @Test func storePersistsOrderAndKeepsDuplicateItems() async throws {
+    @Test func addingDuplicatesKeepsFirstItemAndPersistsOrder() async throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let firstURL = directory.appendingPathComponent("first.txt")
+        let secondURL = directory.appendingPathComponent("second.txt")
         try Data("first".utf8).write(to: firstURL)
-        let persistenceService = ShelfPersistenceService(
-            fileURL: directory.appendingPathComponent("shelf-items.json")
-        )
+        try Data("second".utf8).write(to: secondURL)
+        let persistenceService = ShelfPersistenceService(fileURL: directory.appendingPathComponent("shelf-items.json"))
         let viewModel = ShelfViewModel(persistenceService: persistenceService)
 
-        viewModel.add(urls: [firstURL, firstURL])
+        viewModel.add(urls: [firstURL, firstURL, secondURL])
+        let firstID = try #require(viewModel.items.first?.id)
+        viewModel.add(urls: [secondURL, firstURL])
         await viewModel.waitForPendingOperations()
 
-        let restoredViewModel = ShelfViewModel(
-            persistenceService: persistenceService
-        )
+        let restoredViewModel = ShelfViewModel(persistenceService: persistenceService)
         restoredViewModel.load()
         await restoredViewModel.waitForPendingOperations()
 
-        #expect(restoredViewModel.items.count == 2)
-        #expect(restoredViewModel.items.map(\.displayName) == ["first.txt", "first.txt"])
-        #expect(restoredViewModel.items[0].id != restoredViewModel.items[1].id)
+        #expect(restoredViewModel.items.map(\.displayName) == ["first.txt", "second.txt"])
+        #expect(restoredViewModel.items.first?.id == firstID)
+    }
+
+    @Test func deduplicationUsesFileLocationAndHandlesSymlinksAndFolders() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let subdirectory = directory.appendingPathComponent("other", isDirectory: true)
+        try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
+        let first = directory.appendingPathComponent("same.txt")
+        let other = subdirectory.appendingPathComponent("same.txt")
+        try Data("first".utf8).write(to: first)
+        try Data("other".utf8).write(to: other)
+        let link = directory.appendingPathComponent("alias.txt")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: first)
+        let viewModel = ShelfViewModel(persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("state.json")))
+
+        viewModel.add(urls: [first, link, other, subdirectory, subdirectory])
+
+        #expect(viewModel.items.map(\.fallbackURL) == [first, other, subdirectory])
+    }
+
+    @Test func duplicateItemFallbackIsComparedWithoutMergingUnknownItems() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("missing.txt")
+        let missing = ShelfItem(fallbackURLString: url.absoluteString, displayName: "missing.txt")
+        let duplicate = ShelfItem(fallbackURLString: url.absoluteString, displayName: "missing.txt")
+        let unknown = ShelfItem(displayName: "unknown")
+        let anotherUnknown = ShelfItem(displayName: "unknown")
+        let viewModel = ShelfViewModel(persistenceService: ShelfPersistenceService(fileURL: directory.appendingPathComponent("state.json")))
+
+        viewModel.add(items: [missing, duplicate, unknown, anotherUnknown])
+
+        #expect(viewModel.items.map(\.id) == [missing.id, unknown.id, anotherUnknown.id])
     }
 
     @Test func sessionBoundaryClearsSavedShelfWithoutDeletingSources() async throws {

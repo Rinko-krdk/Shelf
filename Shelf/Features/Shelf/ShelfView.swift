@@ -130,6 +130,7 @@ struct ShelfView: View {
                 .allowsHitTesting(false)
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shelf-content-panel")
         .onHover { hovering in
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) { isHovering = hovering }

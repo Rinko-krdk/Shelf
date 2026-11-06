@@ -67,15 +67,23 @@ final class ShelfViewModel: ObservableObject {
     }
 
     func add(urls: [URL]) {
-        guard !urls.isEmpty else { return }
-        items.append(contentsOf: urls.map(fileService.makeItem(for:)))
-        schedulePersistence()
+        add(items: urls.map(fileService.makeItem(for:)))
     }
 
     func add(items newItems: [ShelfItem]) {
-        guard !newItems.isEmpty else { return }
-        items.append(contentsOf: newItems)
+        var knownURLs = Set(items.compactMap(Self.fileIdentity))
+        let uniqueItems = newItems.filter { item in
+            guard let identity = Self.fileIdentity(item) else { return true }
+            return knownURLs.insert(identity).inserted
+        }
+        guard !uniqueItems.isEmpty else { return }
+        items.append(contentsOf: uniqueItems)
         schedulePersistence()
+    }
+
+    private static func fileIdentity(_ item: ShelfItem) -> URL? {
+        guard let url = item.resolvedURL ?? item.fallbackURL, url.isFileURL else { return nil }
+        return url.standardizedFileURL.resolvingSymlinksInPath()
     }
 
     func remove(id: ShelfItem.ID) {

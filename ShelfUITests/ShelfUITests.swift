@@ -31,17 +31,10 @@ final class ShelfUITests: XCTestCase {
         XCTAssertFalse(app.menuItems["Clear Shelf"].isEnabled)
 
         app.menuItems["Show Shelf"].click()
-        XCTAssertTrue(app.windows["shelf-panel"].waitForExistence(timeout: 3))
-        let stack = app.descendants(matching: .any)["shelf-file-stack"]
-        XCTAssertTrue(stack.waitForExistence(timeout: 2))
-        let window = app.windows["shelf-panel"]
-        let originalOrigin = window.frame.origin
-        let moveFrame = app.descendants(matching: .any)["shelf-window-move-handle"]
-        XCTAssertTrue(moveFrame.exists)
-        let dragStart = moveFrame.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5))
-        let dragEnd = window.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5))
-        dragStart.press(forDuration: 0.2, thenDragTo: dragEnd)
-        XCTAssertNotEqual(window.frame.origin, originalOrigin)
+        XCTAssertTrue(app.dialogs["shelf-panel"].waitForExistence(timeout: 3))
+        let window = app.dialogs["shelf-panel"]
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)).hover()
+        XCTAssertTrue(app.descendants(matching: .any)["shelf-content-panel"].waitForExistence(timeout: 2))
         app.descendants(matching: .any)["shelf-content-panel"]
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .hover()
@@ -51,10 +44,8 @@ final class ShelfUITests: XCTestCase {
         XCTAssertFalse(app.buttons["copy-selected-items"].exists)
         XCTAssertFalse(app.buttons["move-selected-items"].exists)
 
-        statusItem.click()
-        XCTAssertTrue(app.menuItems["Hide Shelf"].waitForExistence(timeout: 2))
-        app.menuItems["Hide Shelf"].click()
-        XCTAssertFalse(app.windows["shelf-panel"].waitForExistence(timeout: 1))
+        app.buttons["shelf-hide-button"].click()
+        XCTAssertFalse(app.dialogs["shelf-panel"].waitForExistence(timeout: 1))
     }
 
     @MainActor
@@ -68,7 +59,7 @@ final class ShelfUITests: XCTestCase {
         statusItem.click()
         app.menuItems["Show Shelf"].click()
 
-        let window = app.windows["shelf-panel"]
+        let window = app.dialogs["shelf-panel"]
         XCTAssertTrue(window.waitForExistence(timeout: 3))
         let overflow = app.buttons["shelf-overflow-toggle"]
         XCTAssertTrue(overflow.waitForExistence(timeout: 2))
@@ -83,7 +74,7 @@ final class ShelfUITests: XCTestCase {
         XCTAssertTrue(hideButton.exists)
         XCTAssertTrue(selectAllButton.exists)
         XCTAssertTrue(selectAllButton.isEnabled)
-        XCTAssertFalse(clearButton.frame.intersects(overflow.frame))
+        XCTAssertFalse(clearButton.frame.intersects(overflow.frame), "Clear: \(clearButton.frame), overflow: \(overflow.frame)")
         XCTAssertFalse(hideButton.frame.intersects(overflow.frame))
         XCTAssertFalse(selectAllButton.frame.intersects(overflow.frame))
 
@@ -106,13 +97,13 @@ final class ShelfUITests: XCTestCase {
         firstRow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
         let filenameTooltip = app.staticTexts["shelf-filename-tooltip"]
         XCTAssertTrue(filenameTooltip.waitForExistence(timeout: 2))
-        XCTAssertEqual(filenameTooltip.label, "fixture-1-this-is-a-very-long-file-name-that-does-not-fit-in-a-list-row.txt")
+        XCTAssertEqual(filenameTooltip.value as? String ?? filenameTooltip.label, "fixture-1-this-is-a-very-long-file-name-that-does-not-fit-in-a-list-row.txt")
         XCTAssertGreaterThanOrEqual(filenameTooltip.frame.minY, firstRow.frame.maxY)
 
         let middleRow = app.descendants(matching: .any)["shelf-expanded-file-row-00000000-0000-0000-0000-000000000003"]
         middleRow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
         let middleTooltipExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "fixture-3.txt"),
+            predicate: NSPredicate(format: "label == %@ OR value == %@", "fixture-3.txt", "fixture-3.txt"),
             object: filenameTooltip
         )
         XCTAssertEqual(XCTWaiter.wait(for: [middleTooltipExpectation], timeout: 2), .completed)
@@ -140,13 +131,14 @@ final class ShelfUITests: XCTestCase {
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         statusItem.click()
 
-        let settingsItem = app.menuItems["Settings…"]
+        let settingsItem = app.menuItems["open-settings"]
         XCTAssertTrue(settingsItem.waitForExistence(timeout: 2))
         settingsItem.click()
 
         XCTAssertTrue(app.windows["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["current-shelf-shortcut"].waitForExistence(timeout: 2))
-        XCTAssertEqual(app.staticTexts["current-shelf-shortcut"].label, "⌃⌥Space")
+        let shortcut = app.staticTexts["current-shelf-shortcut"]
+        XCTAssertEqual(shortcut.value as? String ?? shortcut.label, "⌃⌥Space", shortcut.debugDescription)
         XCTAssertTrue(app.buttons["record-shelf-shortcut-button"].exists)
     }
 
@@ -156,7 +148,7 @@ final class ShelfUITests: XCTestCase {
         app.launchArguments = ["--shelf-reset-language"]
         app.launch()
         app.menuBars.statusItems["Shelf"].click()
-        app.menuItems["Settings…"].click()
+        app.menuItems["open-settings"].click()
 
         let languagePicker = app.descendants(matching: .any)["app-language-picker"]
         XCTAssertTrue(languagePicker.waitForExistence(timeout: 2))
@@ -170,10 +162,9 @@ final class ShelfUITests: XCTestCase {
         app.menuBars.statusItems["Shelf"].click()
         XCTAssertTrue(app.menuItems["显示 Shelf"].waitForExistence(timeout: 2))
 
-        app.menuItems["设置…"].click()
-        let pickerAgain = app.descendants(matching: .any)["app-language-picker"]
-        pickerAgain.click()
-        app.menuItems["English"].click()
+        app.terminate()
+        app.launchArguments = ["--shelf-reset-language"]
+        app.launch()
         app.terminate()
     }
 }

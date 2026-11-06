@@ -80,7 +80,7 @@ enum ShelfDropImporter {
 
         return await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
-                continuation.resume(returning: decodeFileURL(from: item as? NSSecureCoding))
+                continuation.resume(returning: decodeFileURL(from: item))
             }
         }
     }

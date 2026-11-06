@@ -75,11 +75,12 @@ struct FileStackView: View {
                 .help(presentation.hiddenItemCount == 1 ? L10n.string("Show one more file") : L10n.string("Show %d more files", presentation.hiddenItemCount))
                 .accessibilityLabel(presentation.hiddenItemCount == 1 ? L10n.string("Show one more file") : L10n.string("Show %d more files", presentation.hiddenItemCount))
                 .accessibilityIdentifier("shelf-overflow-toggle")
-                .offset(x: 72, y: -3)
+                .offset(x: 65, y: -3)
                 .zIndex(10)
             }
         }
         .frame(width: 102, height: 72)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(items.isEmpty ? L10n.string("Empty Shelf") : (items.count == 1 ? L10n.string("One staged file") : L10n.string("%d staged files", items.count)))
         .accessibilityIdentifier("shelf-file-stack")
     }
@@ -236,6 +237,7 @@ struct FileStackListView: View {
         .onPreferenceChange(ShelfFilenameTooltipSizeKey.self) { size in
             if size != .zero { tooltipSize = size }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shelf-expanded-file-list")
     }
 

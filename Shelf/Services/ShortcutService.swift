@@ -225,8 +225,9 @@ nonisolated private func shelfHotKeyEventHandler(
     )
     guard status == noErr else { return status }
     let service = Unmanaged<ShortcutService>.fromOpaque(userData).takeUnretainedValue()
+    let identifier = hotKeyID.id
     Task { @MainActor in
-        guard hotKeyID.id == service.hotKeyIdentifier else { return }
+        guard identifier == service.hotKeyIdentifier else { return }
         service.onShortcut?()
     }
     return noErr
