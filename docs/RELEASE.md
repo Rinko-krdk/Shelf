@@ -40,7 +40,7 @@ If macOS blocks the preview, link users to [Apple's instructions](https://suppor
 
 - AppIcon uses the user-supplied document-tray artwork in all ten macOS size/scale entries. Check its Finder and Get Info appearance using the installed app. Shelf's accessory lifecycle does not provide a normal Dock or application-switcher entry.
 - Review the usage/privacy/limitations text in `docs/PREVIEW_README.txt` and the draft notes below, including source deletion after successful destination writes.
-- Confirm source licensing before advertising the repository as open source. No license has been selected in this repository; do not invent one.
+- Shelf is licensed under GPL-3.0-only; before distributing a release, ensure the package and accompanying source offer meet the license's requirements. Previously generated preview packages have not been checked for GPL compliance.
 - The user reported that the current candidate's login-item registration issue is resolved. Verify logout/login and the remaining downloaded-first-launch and upgrade limitations above. After explicit approval, push the selected commit(s), create the chosen tag and GitHub **Pre-release**, and attach the exact tested ZIP and checksum. Do not publish a plain `v1.0` final release from this preview workflow.
 - For later Developer ID distribution, join Apple Developer Program, prepare the Developer ID Application signing identity, export the Release archive, submit for notarization, staple the ticket to the app, then re-create and verify the ZIP. Repeat downloaded-install acceptance. See [Developer ID](https://developer.apple.com/developer-id/) and [Apple's notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
 
