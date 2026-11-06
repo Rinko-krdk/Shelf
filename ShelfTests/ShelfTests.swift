@@ -47,6 +47,18 @@ struct ShelfTests {
         #expect(restored.items[0].resolvedURL == nil)
     }
 
+    @Test func persistenceDecodesMissingNameUsingSelectedLanguage() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appendingPathComponent("shelf.json")
+        try Data(#"{"version":1,"items":[{}]}"#.utf8).write(to: fileURL)
+        let expectedName = L10n.string("Untitled File")
+
+        let document = try await ShelfPersistenceService(fileURL: fileURL).load()
+
+        #expect(document.items.first?.displayName == expectedName)
+    }
+
     @Test func legacyShelfItemsDefaultToReadOnlyBookmarks() throws {
         let data = Data(#"{"displayName":"legacy.txt","addedAt":"2026-09-24T00:00:00Z","status":"available"}"#.utf8)
         let decoder = JSONDecoder()

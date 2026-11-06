@@ -15,20 +15,23 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
+nonisolated enum LanguagePreference {
+    static let defaultsKey = "shelf.appLanguage"
+}
+
 final class LanguageManager: ObservableObject {
     static let shared = LanguageManager()
-    private static let defaultsKey = "shelf.appLanguage"
 
     @Published private(set) var language: AppLanguage
 
     private init() {
-        language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: Self.defaultsKey) ?? "en") ?? .english
+        language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: LanguagePreference.defaultsKey) ?? "en") ?? .english
     }
 
     func setLanguage(_ language: AppLanguage) {
         guard self.language != language else { return }
         self.language = language
-        UserDefaults.standard.set(language.rawValue, forKey: Self.defaultsKey)
+        UserDefaults.standard.set(language.rawValue, forKey: LanguagePreference.defaultsKey)
     }
 }
 

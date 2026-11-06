@@ -46,7 +46,7 @@ final class ShelfPanelController: NSObject, ObservableObject, NSWindowDelegate {
         panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
-        panel.level = .floating
+        panel.level = NSWindow.Level(rawValue: 8)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.isMovableByWindowBackground = false
         panel.isOpaque = false
@@ -248,6 +248,10 @@ private final class ShelfPanelFrameView: NSView {
     private var pushedDragCursor = false
 
     var onInteractionChanged: ((Bool) -> Void)?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
 
     init(contentInsets: NSEdgeInsets) {
         self.contentInsets = contentInsets

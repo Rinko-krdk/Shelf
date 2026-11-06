@@ -21,11 +21,17 @@ From the repository root, using the commands in [README](../README.md#developmen
 
 - A normally signed macOS arm64 UI run passed all four remaining tests before the two warning-only source edits; the deleted window-drag test is not included.
 - After those edits, the signed unit-test build and all 37 unit tests passed. The shortcut closure capture and redundant drop-import cast warnings were addressed; persistence actor isolation warnings remain for separate investigation. No clean build was performed.
-- The working tree includes existing panel diagnostics that write to `/private/tmp/shelf-drag-log.txt` and change the window level; review these before release. Manual window movement and real drag-and-drop remain unverified.
+- At that point the working tree included panel diagnostic logging and a changed window level; see the later reliability update for cleanup.
+
+### Reliability update: 2026-11-07
+
+- A fresh signed build and 40 unit tests passed; the earlier persistence actor-isolation warnings did not appear. Four UI tests passed after diagnostic cleanup.
+- The user reported manually testing the UI and functionality successfully before this cleanup. The removed window-drag UI test does not cover the cleaned version; recheck movement and real file transfer when preparing the release candidate.
+- Temporary pointer and window-stack logging was removed. The previously tested window level and first-mouse behavior remain in place.
 
 ## Active development
 
-1. Investigate persistence actor isolation warnings; review existing panel diagnostics and verify window movement. Repeat UI tests after relevant changes.
+1. Recheck window movement and representative file transfers on the cleaned release candidate; review remaining release configuration and repeat relevant tests after changes.
 2. Use disposable files to validate Finder → Shelf → Finder and at least one other target, including cancellation, rejection, copy failure, missing deletion permission, deletion failure, and partial success.
 3. Verify session boundaries, external file changes, persistence recovery, window behavior, accessibility, and performance. Record defects and results here.
 4. Review usage, privacy, and limitations before separately authorized signing, notarization, and release work.

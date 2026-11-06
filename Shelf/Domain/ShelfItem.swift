@@ -5,7 +5,7 @@
 
 import Foundation
 
-enum ShelfItemStatus: String, Codable, Equatable, Sendable {
+nonisolated enum ShelfItemStatus: String, Codable, Equatable, Sendable {
     case available
     case missing
     case inaccessible
@@ -13,7 +13,7 @@ enum ShelfItemStatus: String, Codable, Equatable, Sendable {
     case bookmarkResolutionFailed
 }
 
-struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
+nonisolated struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     var bookmarkData: Data?
     var bookmarkAllowsWriteAccess: Bool
@@ -74,11 +74,18 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
         fallbackURLString = decodedFallback
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
             ?? decodedFallback.flatMap { URL(string: $0)?.lastPathComponent }
-            ?? L10n.string("Untitled File")
+            ?? Self.untitledFileName()
         contentTypeIdentifier = try container.decodeIfPresent(String.self, forKey: .contentTypeIdentifier)
         addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
         status = try container.decodeIfPresent(ShelfItemStatus.self, forKey: .status) ?? .bookmarkResolutionFailed
         resolvedURL = nil
+    }
+
+    private static func untitledFileName() -> String {
+        let language = UserDefaults.standard.string(forKey: LanguagePreference.defaultsKey) ?? "en"
+        let bundle = Bundle.main.path(forResource: language, ofType: "lproj")
+            .flatMap(Bundle.init(path:)) ?? .main
+        return bundle.localizedString(forKey: "Untitled File", value: "Untitled File", table: nil)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -94,7 +101,7 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-struct ShelfDocument: Codable, Sendable {
+nonisolated struct ShelfDocument: Codable, Sendable {
     static let currentVersion = 1
 
     let version: Int

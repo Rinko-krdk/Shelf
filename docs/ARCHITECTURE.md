@@ -8,7 +8,7 @@ Shelf is a macOS 15+ menu bar utility built with SwiftUI and AppKit. It temporar
 - `Features/MenuBar` and `Features/Settings`: menu, settings, shortcut, and language controls.
 - `Features/Shelf`: panel positioning, stack and list UI, selection, drop importing, and file-promise drag output.
 - `State/ShelfViewModel`: observable items, selection-related operations, session cleanup, persistence scheduling, transfer completion, and errors.
-- `Domain/ShelfItem`: file reference and status; `ShelfDocument` stores versioned items in display order. Existing decoded duplicates retain distinct IDs; new additions are deduplicated by normalized file location.
+- `Domain/ShelfItem`: nonisolated, sendable file reference and status; `ShelfDocument` stores versioned items in display order for the persistence actor. Existing decoded duplicates retain distinct IDs; new additions are deduplicated by normalized file location.
 - `Services`: security-scoped bookmarks and source deletion; actor-based persistence; Quick Look thumbnails; shortcut, shake, and localization support.
 
 ## Sessions and storage
